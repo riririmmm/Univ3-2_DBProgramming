@@ -183,8 +183,8 @@ public class BookController {
         Review review = new Review(
                 isbn13,
                 rating,
-                spoiler,
-                body.getOverall()
+                body.getOverall(),
+                spoiler
         );
         reviewRepo.save(review);
     }
