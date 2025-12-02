@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>도서 상세</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; }
+        .layout { display: flex; gap: 16px; }
+        .cover { width: 400px; }
+        .cover img { width: 100%; object-fit: cover; }
+        .info h1 { margin: 0 0 8px; font-size: 1.5rem; }
+        .meta { color: #555; margin-bottom: 8px; }
+        .pages { color: #555; margin-bottom: 8px; }
+        .desc { margin-bottom: 16px; white-space: pre-line; }
+        section { margin-top: 24px; }
+        section h2 { font-size: 1.1rem; margin-bottom: 8px; }
+        input[type="number"], input[type="text"], textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+        button { padding: 6px 10px; margin-top: 4px; }
+        a { display:block; margin-bottom: 20px; }
+        .comment-item { border-bottom: 1px solid #eee; padding: 4px 0; font-size: 0.9rem; }
+        .spoiler-label { font-size: 0.9rem; color: #a00; margin-left: 4px; }
+    </style>
+</head>
+<body>
+<a href="/">← 검색으로 돌아가기</a>
+
+<div class="layout">
+    <div class="cover">
+        <img id="cover" src="" alt="cover">
+    </div>
+    <div class="info">
+        <h1 id="title">제목</h1>
+        <div class="meta" id="meta"></div>
+        <div class="pages" id="pages"></div>
+        <div class="desc" id="desc"></div>
+    </div>
+</div>
+
+<section>
+    <h2>진행도</h2>
+    <div>
+        현재 페이지: <span id="currentPage">0</span>
+    </div>
+    <div style="margin-top:6px;">
+        <input id="progressInput" type="number" min="0" placeholder="현재 읽은 페이지">
+        <button id="progressBtn">저장</button>
+    </div>
+</section>
+
+<section>
+    <h2>페이지 코멘트</h2>
+    <div style="margin-bottom:6px;">
+        <input id="commentPage" type="number" min="1" placeholder="페이지">
+    </div>
+    <div>
+        <textarea id="commentText" rows="3" placeholder="페이지별 메모를 남겨보세요"></textarea>
+        <button id="commentBtn">코멘트 추가</button>
+    </div>
+    <div id="commentList" style="margin-top:10px;"></div>
+</section>
+
+<section>
+    <h2>총평 (리뷰)</h2>
+    <div id="reviewView"></div>
+    <button id="revealBtn" style="display:none;">스포일러 보기</button>
+
+    <div style="margin-top:10px;">
+        <textarea id="reviewText" rows="3" placeholder="총평을 작성하세요"></textarea><br>
+        <label>
+            <input type="checkbox" id="reviewSpoiler">
+            스포일러 포함
+        </label><br>
+        <button id="reviewBtn">리뷰 저장</button>
+    </div>
+</section>
+
+<script th:inline="javascript">
+    const isbn13 = /*[[${isbn13}]]*/ "";
+
+    async function loadDetail() {
+        try {
+            const res = await fetch(`/api/books/${isbn13}`);
+            if (!res.ok) return;
+            const b = await res.json();
+            document.getElementById('title').textContent = b.title;
+            document.getElementById('meta').textContent =
+                (b.authors && b.authors.length ? b.authors.join(', ') : '') +
+                ' | ' + (b.publisher || '');
+            document.getElementById('pages').textContent = b.pageCount ? `${b.pageCount}쪽` : '';
+            document.getElementById('desc').textContent = b.description || '';
+            const cover = document.getElementById('cover');
+            cover.src = b.coverUrl || '';
+            cover.alt = b.title;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function loadProgress() {
+        try {
+            const res = await fetch(`/api/books/${isbn13}/progress`);
+            if (!res.ok) return;
+            const data = await res.json();
+            document.getElementById('currentPage').textContent = data.currentPage ?? 0;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function saveProgress() {
+        const v = document.getElementById('progressInput').value;
+        const n = Number(v);
+        if (Number.isNaN(n) || n < 0) return alert('0 이상 숫자를 입력하세요.');
+        try {
+            const res = await fetch(`/api/books/${isbn13}/progress`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPage: n })
+            });
+            if (!res.ok) {
+                alert('저장 실패: ' + res.status);
+                return;
+            }
+            await loadProgress();
+        } catch (e) {
+            console.error(e);
+            alert('오류 발생');
+        }
+    }
+
+    function renderComments(list) {
+        const box = document.getElementById('commentList');
+        box.innerHTML = '';
+        if (!list || list.length === 0) {
+            box.textContent = '등록된 코멘트가 없습니다.';
+            return;
+        }
+        list.forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'comment-item';
+            div.textContent = `[p.${c.page}] ${c.comment}`;
+            box.appendChild(div);
+        });
+    }
+
+    async function loadComments() {
+        try {
+            const res = await fetch(`/api/books/${isbn13}/page-comments`);
+            if (!res.ok) return;
+            const data = await res.json();
+            renderComments(data);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function addComment() {
+        const pageV = document.getElementById('commentPage').value;
+        const text = document.getElementById('commentText').value.trim();
+        const page = Number(pageV);
+        if (!text || Number.isNaN(page) || page < 1) {
+            return alert('페이지(>=1)와 코멘트를 입력하세요.');
+        }
+        try {
+            const res = await fetch(`/api/books/${isbn13}/page-comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ page: page, comment: text })
+            });
+            if (!res.ok) {
+                alert('코멘트 저장 실패: ' + res.status);
+                return;
+            }
+            document.getElementById('commentText').value = '';
+            await loadComments();
+        } catch (e) {
+            console.error(e);
+            alert('오류 발생');
+        }
+    }
+
+    async function loadReview(reveal = false) {
+        try {
+            const res = await fetch(`/api/books/${isbn13}/review?reveal=${reveal}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const view = document.getElementById('reviewView');
+            const revealBtn = document.getElementById('revealBtn');
+            if (!data || !data.overall) {
+                view.textContent = '아직 등록된 리뷰가 없습니다.';
+                revealBtn.style.display = 'none';
+                return;
+            }
+            view.textContent = data.overall;
+            if (data.spoiler && !reveal) {
+                revealBtn.style.display = 'inline-block';
+            } else {
+                revealBtn.style.display = 'none';
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function saveReview() {
+        const text = document.getElementById('reviewText').value.trim();
+        const spoiler = document.getElementById('reviewSpoiler').checked;
+        if (!text) return alert('리뷰 내용을 입력하세요.');
+        try {
+            const res = await fetch(`/api/books/${isbn13}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ overall: text, spoiler: spoiler })
+            });
+            if (!res.ok) {
+                alert('리뷰 저장 실패: ' + res.status);
+                return;
+            }
+            document.getElementById('reviewText').value = '';
+            document.getElementById('reviewSpoiler').checked = false;
+            await loadReview(false);
+        } catch (e) {
+            console.error(e);
+            alert('오류 발생');
+        }
+    }
+
+    document.getElementById('progressBtn').addEventListener('click', saveProgress);
+    document.getElementById('commentBtn').addEventListener('click', addComment);
+    document.getElementById('reviewBtn').addEventListener('click', saveReview);
+    document.getElementById('revealBtn').addEventListener('click', () => loadReview(true));
+
+    // 초기 로딩
+    loadDetail();
+    loadProgress();
+    loadComments();
+    loadReview(false);
+</script>
+</body>
+</html>

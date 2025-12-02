@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>책 검색</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+        .book-card { border: 1px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; gap: 12px; }
+        .book-card img { width: 80px; height: auto; object-fit: cover; }
+        .book-info { flex: 1; }
+        .book-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 4px; }
+        .book-meta { font-size: 0.9rem; color: #555; margin-bottom: 4px; }
+        .book-desc { font-size: 0.9rem; color: #333; }
+        .book-link { margin-top: 4px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<h1>책 검색</h1>
+
+<div class="search-box">
+    <input id="q" type="text" placeholder="책 제목 / 작가" style="flex:1; padding:6px;">
+    <button id="searchBtn">검색</button>
+</div>
+
+<div id="results"></div>
+
+<script>
+    const $q = document.getElementById('q');
+    const $btn = document.getElementById('searchBtn');
+    const $results = document.getElementById('results');
+
+    function renderResults(list) {
+        $results.innerHTML = '';
+        if (!list || list.length === 0) {
+            $results.textContent = '검색 결과가 없습니다.';
+            return;
+        }
+        list.forEach(b => {
+            const div = document.createElement('div');
+            div.className = 'book-card';
+
+            const img = document.createElement('img');
+            img.src = b.coverUrl || '';
+            img.alt = b.title;
+
+            const info = document.createElement('div');
+            info.className = 'book-info';
+
+            const title = document.createElement('div');
+            title.className = 'book-title';
+            title.textContent = b.title;
+
+            const meta = document.createElement('div');
+            meta.className = 'book-meta';
+            meta.textContent = (b.authors && b.authors.length > 0 ? b.authors.join(', ') : '')
+                + ' | ' + (b.publisher || '');
+
+            const desc = document.createElement('div');
+            desc.className = 'book-desc';
+            desc.textContent = b.description || '';
+
+            const link = document.createElement('div');
+            link.className = 'book-link';
+            const a = document.createElement('a');
+            a.href = '/books/' + b.isbn13;
+            a.textContent = '상세 보기';
+            link.appendChild(a);
+
+            info.appendChild(title);
+            info.appendChild(meta);
+            info.appendChild(desc);
+            info.appendChild(link);
+
+            div.appendChild(img);
+            div.appendChild(info);
+            $results.appendChild(div);
+        });
+    }
+
+    async function doSearch() {
+        const q = $q.value.trim();
+        if (!q) return;
+        $results.textContent = '검색 중...';
+
+        try {
+            const res = await fetch(`/api/books/search?q=${encodeURIComponent(q)}&size=10`);
+            if (!res.ok) {
+                $results.textContent = '검색 실패: ' + res.status;
+                return;
+            }
+            const data = await res.json();
+            renderResults(data);
+        } catch (e) {
+            console.error(e);
+            $results.textContent = '오류 발생';
+        }
+    }
+
+    $btn.addEventListener('click', doSearch);
+    $q.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doSearch();
+    });
+</script>
+</body>
+</html>
