@@ -207,7 +207,7 @@ public class BookController {
         }
 
         // 평균 별점 (rating IS NOT NULL 인 것만)
-        Double avg = reviewRepo.findAvgRating(isbn13);
+        Double avg = reviewRepo.findAvgRatingByIsbn13(isbn13);
 
         reviews.sort(Comparator.comparingLong(Review::getId));
         Review latest = reviews.get(reviews.size() - 1);
