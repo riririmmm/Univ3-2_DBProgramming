@@ -2,6 +2,8 @@ package com.example.demo.project.domain;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "review")
 public class Review {
@@ -14,7 +16,7 @@ public class Review {
     private String isbn13;
 
     @Column(nullable = true)
-    private Integer rating;          // 1~5 점
+    private Double rating;          // 1~5 점
 
     @Column(nullable = false, columnDefinition = "text")
     private String overall;
@@ -22,14 +24,18 @@ public class Review {
     @Column(nullable = false)
     private Boolean spoiler;
 
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
     protected Review() {
     }
 
-    public Review(String isbn13, Integer rating, String overall, Boolean spoiler) {
+    public Review(String isbn13, Double rating, String overall, Boolean spoiler) {
         this.isbn13 = isbn13;
         this.rating = rating;
         this.overall = overall;
         this.spoiler = spoiler;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -40,7 +46,7 @@ public class Review {
         return isbn13;
     }
 
-    public Integer getRating() {
+    public Double getRating() {
         return rating;
     }
 
@@ -50,5 +56,9 @@ public class Review {
 
     public Boolean getSpoiler() {
         return spoiler;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 }

@@ -130,7 +130,7 @@
     </div>
 </section>
 
-<!-- ✅ 페이지 코멘트: 빠른 입력 + 모달 -->
+<!-- 페이지 코멘트: 빠른 입력 + 모달 -->
 <section>
     <h2>페이지 코멘트</h2>
 
@@ -150,19 +150,35 @@
 </section>
 
 <section>
-    <h2>총평 (리뷰)</h2>
+    <h2>
+        총평 (리뷰)
+        <span id="reviewAverage"
+              style="font-size:0.9rem; color:#555; margin-left:8px;"></span>
+    </h2>
 
     <!-- 여러 개의 리뷰를 전부 보여주는 영역 -->
     <div id="reviewList"></div>
 
     <!-- 리뷰 작성 -->
-    <div style="margin-top:10px;">
-        <textarea id="reviewText" rows="3" placeholder="총평을 작성하세요"></textarea><br>
+    <div id="reviewForm">
+        <textarea id="reviewText" placeholder="한줄평을 입력하세요"></textarea>
+
+        <div>
+            <label for="reviewRating">평점 (1~5):</label>
+            <input type="number"
+                   id="reviewRating"
+                   min="1"
+                   max="5"
+                   step="0.1"
+                   placeholder="예: 4.5">
+        </div>
+
         <label>
             <input type="checkbox" id="reviewSpoiler">
             스포일러 포함
-        </label><br>
-        <button id="reviewBtn">리뷰 저장</button>
+        </label>
+
+        <button type="button" onclick="saveReview()">리뷰 저장</button>
     </div>
 </section>
 
@@ -287,14 +303,36 @@
 
             const reviews = Array.isArray(data)
                 ? data
-                : (data ? [data] : []);  // 혹시 단일 객체를 리턴하더라도 대응
+                : (data ? [data] : []);
+
+            const avgSpan = document.getElementById('reviewAverage');
 
             if (reviews.length === 0) {
                 container.textContent = '아직 등록된 리뷰가 없습니다.';
+                if (avgSpan) avgSpan.textContent = '';   // 평균 표시 제거
                 return;
             }
 
-            // 최신 작성일 순으로 정렬 (createdAt 없으면 그대로)
+            // 평점 평균 계산
+            let ratingSum = 0;
+            let ratingCount = 0;
+            reviews.forEach(r => {
+                if (typeof r.rating === 'number') {
+                    ratingSum += r.rating;
+                    ratingCount++;
+                }
+            });
+
+            if (avgSpan) {
+                if (ratingCount > 0) {
+                    const avg = ratingSum / ratingCount;
+                    avgSpan.textContent = `평균 ★ ${avg.toFixed(1)} (${ratingCount}명)`;
+                } else {
+                    avgSpan.textContent = '';
+                }
+            }
+
+            // 최신 작성일 순 정렬
             reviews.sort((a, b) => {
                 const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                 const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -307,12 +345,22 @@
 
                 const meta = document.createElement('div');
                 meta.className = 'review-meta';
+
                 const dateStr = r.createdAt
                     ? new Date(r.createdAt).toLocaleString('ko-KR')
                     : '';
+
+                // 여기 추가: 각 리뷰의 별점 표시용 텍스트
+                const ratingPart =
+                    (typeof r.rating === 'number')
+                        ? ` • ★ ${r.rating}`
+                        : '';
+
+                // meta.textContent 수정: ratingPart를 끼워넣음
                 meta.textContent =
                     `${idx === 0 ? '최근 리뷰' : `리뷰 #${reviews.length - idx}`} ` +
                     (dateStr ? `• ${dateStr}` : '') +
+                    ratingPart +
                     (r.spoiler ? ' • 스포일러 포함' : '');
 
                 const body = document.createElement('div');
@@ -350,18 +398,34 @@
         } catch (e) {
             console.error(e);
             container.textContent = '리뷰를 불러오는 중 오류가 발생했습니다.';
+            const avgSpan = document.getElementById('reviewAverage');
+            if (avgSpan) avgSpan.textContent = '';
         }
     }
 
     async function saveReview() {
         const text    = document.getElementById('reviewText').value.trim();
         const spoiler = document.getElementById('reviewSpoiler').checked;
-        if (!text) return alert('리뷰 내용을 입력하세요.');
+        const ratingStr = document.getElementById('reviewRating').value;
+        const rating = parseFloat(ratingStr);
+
+        if (!text) {
+            return alert('리뷰 내용을 입력하세요.');
+        }
+
+        if (Number.isNaN(rating) || rating < 1 || rating > 5) {
+            return alert('평점은 1에서 5 사이의 숫자여야 합니다.');
+        }
+
         try {
             const res = await fetch(`/api/books/${isbn13}/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ overall: text, spoiler: spoiler })
+                body: JSON.stringify({
+                    overall: text,
+                    spoiler: spoiler,
+                    rating: rating
+                })
             });
             if (!res.ok) {
                 alert('리뷰 저장 실패: ' + res.status);
@@ -369,6 +433,7 @@
             }
             document.getElementById('reviewText').value = '';
             document.getElementById('reviewSpoiler').checked = false;
+            document.getElementById('reviewRating').value = ''; // 평점 입력창도 초기화
             await loadReviews();   // 저장 후 전체 목록 다시 로딩
         } catch (e) {
             console.error(e);
@@ -540,6 +605,7 @@
                 return;
             }
             textEl.value = '';
+            pageInput.value = '';
             // 모달이 열려 있다면 리스트 갱신
             if (!document.getElementById('commentModal').classList.contains('hidden')) {
                 await reloadModalComments();
@@ -552,7 +618,6 @@
 
     // ===== 이벤트 바인딩 =====
     document.getElementById('progressBtn').addEventListener('click', saveProgress);
-    document.getElementById('reviewBtn').addEventListener('click', saveReview);
 
     document.getElementById('openCommentModalBtn').addEventListener('click', openCommentModal);
     document.getElementById('closeCommentModalBtn').addEventListener('click', closeCommentModal);

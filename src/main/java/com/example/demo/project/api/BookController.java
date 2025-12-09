@@ -173,7 +173,7 @@ public class BookController {
         }
 
         // rating 필드는 NewReview DTO에 Integer rating 추가해서 사용 (없으면 null 허용)
-        Integer rating = body.getRating();
+        Double rating = body.getRating();
         if (rating != null && (rating < 1 || rating > 5)) {
             throw new IllegalArgumentException("rating must be between 1 and 5");
         }
