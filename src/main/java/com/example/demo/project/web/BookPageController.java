@@ -18,6 +18,6 @@ public class BookPageController {
     @GetMapping("/books/{isbn13}")
     public String bookDetail(@PathVariable String isbn13, Model model) {
         model.addAttribute("isbn13", isbn13);
-        return "book-detail";   // templates/book-detail.html
+        return "book/book-detail";
     }
 }
