@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<header th:fragment="siteHeader"
+        style="display:flex; justify-content:space-between; align-items:center; padding:20px 0;">
+    <div style="font-size:32px; font-weight:bold; cursor:pointer;"
+         onclick="location.href='/'">책 검색</div>
+
+    <div>
+        <!-- 비로그인 -->
+        <span sec:authorize="isAnonymous()">
+            <a th:href="@{/login}">로그인</a>
+            &nbsp;|&nbsp;
+            <a th:href="@{/signup}">회원가입</a>
+        </span>
+
+        <!-- 로그인 -->
+        <span sec:authorize="isAuthenticated()">
+            <span sec:authentication="name"></span> 님
+            &nbsp;|&nbsp;
+            <a th:href="@{/logout}">로그아웃</a>
+        </span>
+    </div>
+</header>
+</body>
+</html>

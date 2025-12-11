@@ -16,14 +16,15 @@
     </style>
 </head>
 <body>
-<h1>책 검색</h1>
 
-<div class="search-box">
-    <input id="q" type="text" placeholder="책 제목 / 작가" style="flex:1; padding:6px;">
-    <button id="searchBtn">검색</button>
-</div>
+<!-- 헤더 -->
+<div th:replace="layout/header :: siteHeader"></div>
 
-<div id="results"></div>
+<!-- 검색 박스 -->
+<div th:replace="search/search-form :: searchForm"></div>
+
+<!-- 검색 결과 영역 -->
+<div th:replace="search/search-result :: searchResult"></div>
 
 <script>
     const $q = document.getElementById('q');
