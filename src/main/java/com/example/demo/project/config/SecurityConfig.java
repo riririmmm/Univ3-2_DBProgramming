@@ -1,5 +1,6 @@
 package com.example.demo.project.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -9,8 +10,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+@RequiredArgsConstructor
 @Configuration
 public class SecurityConfig {
+
+    private final CustomAuthFailureHandler customAuthFailureHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -31,10 +35,12 @@ public class SecurityConfig {
                 .formLogin(form -> form
                         .loginPage("/login")
                         .defaultSuccessUrl("/", true)
+                        .failureHandler(customAuthFailureHandler)
                         .permitAll()
                 )
                 .oauth2Login(oauth -> oauth
                         .loginPage("/login")    // 폼로그인과 동일 페이지 사용
+                        .defaultSuccessUrl("/", true)
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")

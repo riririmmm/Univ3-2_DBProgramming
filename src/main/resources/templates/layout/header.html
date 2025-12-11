@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:th="http://www.thymeleaf.org">
 <body>
-<header th:fragment="siteHeader"
-        style="display:flex; justify-content:space-between; align-items:center; padding:20px 0;">
-    <div style="font-size:32px; font-weight:bold; cursor:pointer;"
-         onclick="location.href='/'">책 검색</div>
+<header style="display:flex; justify-content:space-between; align-items:center; padding:20px 0;"
+        th:fragment="siteHeader">
+    <div onclick="location.href='/'"
+         style="font-size:32px; font-weight:bold; cursor:pointer;">책 검색
+    </div>
 
     <div>
         <!-- 비로그인 -->
@@ -17,9 +18,11 @@
 
         <!-- 로그인 -->
         <span sec:authorize="isAuthenticated()">
-            <span sec:authentication="name"></span> 님
-            &nbsp;|&nbsp;
-            <a th:href="@{/logout}">로그아웃</a>
+            <span sec:authorize="isAuthenticated()">
+                <span th:text="${loginNickname}">사용자</span> 님
+                &nbsp;|&nbsp;
+                <a th:href="@{/logout}">로그아웃</a>
+            </span>
         </span>
     </div>
 </header>
