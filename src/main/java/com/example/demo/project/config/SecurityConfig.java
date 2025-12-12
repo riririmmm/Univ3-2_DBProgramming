@@ -3,6 +3,7 @@ package com.example.demo.project.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -30,7 +31,9 @@ public class SecurityConfig {
                         .requestMatchers("/", "/login", "/signup",
                                 "/css/**", "/js/**", "/images/**",
                                 "/oauth2/**").permitAll()
-                        .requestMatchers("/api/books/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/books/**").permitAll()               // 검색/조회 공개
+                        .requestMatchers(HttpMethod.POST, "/api/books/*/review").authenticated()    // 리뷰 작성 로그인 필요
+                        // 필요하면 progress, page-comments POST/PATCH도 여기 추가
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

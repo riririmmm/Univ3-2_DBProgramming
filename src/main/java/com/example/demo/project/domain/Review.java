@@ -1,7 +1,6 @@
 package com.example.demo.project.domain;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -14,6 +13,10 @@ public class Review {
 
     @Column(length = 20, nullable = false)
     private String isbn13;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id")
+    private UserAccount user;
 
     @Column(nullable = true)
     private Double rating;          // 1~5 점
@@ -30,7 +33,9 @@ public class Review {
     protected Review() {
     }
 
-    public Review(String isbn13, Double rating, String overall, Boolean spoiler) {
+    // 생성자도 user 추가해서 새로 정의
+    public Review(UserAccount user, String isbn13, Double rating, String overall, Boolean spoiler) {
+        this.user = user;
         this.isbn13 = isbn13;
         this.rating = rating;
         this.overall = overall;
@@ -60,5 +65,9 @@ public class Review {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public UserAccount getUser() {
+        return user;
     }
 }

@@ -4,18 +4,13 @@ import com.example.demo.project.api.dto.BookView;
 import com.example.demo.project.api.dto.NewPageComment;
 import com.example.demo.project.api.dto.NewReview;
 import com.example.demo.project.api.dto.ProgressReq;
+import com.example.demo.project.domain.*;
 import com.example.demo.project.infra.aladin.AladinClient;
 import com.example.demo.project.infra.aladin.AladinItem;
 import com.example.demo.project.infra.aladin.AladinSearchResponse;
 
-import com.example.demo.project.domain.BookProgress;
-import com.example.demo.project.domain.PageComment;
-import com.example.demo.project.domain.Review;
-import com.example.demo.project.domain.BookProgressRepository;
-import com.example.demo.project.domain.PageCommentRepository;
-import com.example.demo.project.domain.ReviewRepository;
-
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -27,15 +22,25 @@ public class BookController {
     private final BookProgressRepository progressRepo;
     private final PageCommentRepository pageCommentRepo;
     private final ReviewRepository reviewRepo;
+    private final UserAccountRepository userAccountRepo;
 
     public BookController(AladinClient aladin,
                           BookProgressRepository progressRepo,
                           PageCommentRepository pageCommentRepo,
-                          ReviewRepository reviewRepo) {
+                          ReviewRepository reviewRepo,
+                          UserAccountRepository userAccountRepo) {
         this.aladin = aladin;
         this.progressRepo = progressRepo;
         this.pageCommentRepo = pageCommentRepo;
         this.reviewRepo = reviewRepo;
+        this.userAccountRepo = userAccountRepo;
+    }
+
+    // 현재 로그인한 UserAccount 가져오는 헬퍼
+    private UserAccount getCurrentUser(Authentication authentication) {
+        String username = authentication.getName();  // 폼/구글 둘 다 여기로 들어옴
+        return userAccountRepo.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("로그인 유저를 찾을 수 없습니다: " + username));
     }
 
     // 검색
@@ -167,7 +172,9 @@ public class BookController {
     // ---------------------------------------------------
     @PostMapping("/api/books/{isbn13}/review")
     @ResponseStatus(HttpStatus.CREATED)
-    public void saveReview(@PathVariable String isbn13, @RequestBody NewReview body) {
+    public void saveReview(@PathVariable String isbn13,
+                           @RequestBody NewReview body,
+                           Authentication authentication) {
         if (body == null || body.getOverall() == null || body.getOverall().isBlank()) {
             throw new IllegalArgumentException("overall required");
         }
@@ -180,7 +187,12 @@ public class BookController {
 
         boolean spoiler = Boolean.TRUE.equals(body.getSpoiler());
 
+        // 로그인한 유저 엔티티 조회
+        UserAccount user = getCurrentUser(authentication);
+
+        // UserAccount 붙여서 Review 생성
         Review review = new Review(
+                user,
                 isbn13,
                 rating,
                 body.getOverall(),
