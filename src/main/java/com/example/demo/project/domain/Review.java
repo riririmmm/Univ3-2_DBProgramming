@@ -70,4 +70,32 @@ public class Review {
     public UserAccount getUser() {
         return user;
     }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setIsbn13(String isbn13) {
+        this.isbn13 = isbn13;
+    }
+
+    public void setUser(UserAccount user) {
+        this.user = user;
+    }
+
+    public void setRating(Double rating) {
+        this.rating = rating;
+    }
+
+    public void setOverall(String overall) {
+        this.overall = overall;
+    }
+
+    public void setSpoiler(Boolean spoiler) {
+        this.spoiler = spoiler;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }
