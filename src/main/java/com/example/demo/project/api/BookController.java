@@ -38,7 +38,7 @@ public class BookController {
 
     // 현재 로그인한 UserAccount 가져오는 헬퍼
     private UserAccount getCurrentUser(Authentication authentication) {
-        String username = authentication.getName();  // 폼/구글 둘 다 여기로 들어옴
+        String username = authentication.getName();     // 폼/구글 둘 다 여기로 들어옴
         return userAccountRepo.findByUsername(username)
                 .orElseThrow(() -> new IllegalStateException("로그인 유저를 찾을 수 없습니다: " + username));
     }
@@ -118,13 +118,24 @@ public class BookController {
     @PostMapping("/api/books/{isbn13}/page-comments")
     @ResponseStatus(HttpStatus.CREATED)
     public void addPageComment(@PathVariable String isbn13,
-                               @RequestBody NewPageComment body) {
+                               @RequestBody NewPageComment body,
+                               Authentication authentication) {
         if (body == null || body.getPage() == null || body.getPage() < 1
                 || body.getComment() == null || body.getComment().isBlank()) {
             throw new IllegalArgumentException("page >= 1 and comment required");
         }
 
-        PageComment entity = new PageComment(isbn13, body.getPage(), body.getComment());
+        // 로그인 유저 가져오기
+        UserAccount me = getCurrentUser(authentication);
+
+        // 유저까지 포함해서 저장
+        PageComment entity = new PageComment(
+                isbn13,
+                body.getPage(),
+                body.getComment(),
+                me
+        );
+
         pageCommentRepo.save(entity);
     }
 

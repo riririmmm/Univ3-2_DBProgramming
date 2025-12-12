@@ -44,13 +44,9 @@
             line-height: 1.3;
         }
 
-        /* 아래 기존 리뷰 리스트 스타일은 그대로 */
+        /* 공통 리스트 / 텍스트 */
         ul { list-style: none; padding-left: 0; }
         li { padding: 8px 0; border-bottom: 1px solid #eee; }
-        .review-item { display: flex; flex-direction: column; gap: 4px; }
-        .review-meta { font-size: 12px; color: #666; }
-        .actions button { margin-right: 6px; font-size: 12px; }
-        .book-link { text-decoration: none; color: #0366d6; }
 
         /* 모달 */
         .modal-backdrop {
@@ -90,6 +86,12 @@
             font-size: 18px;
             cursor: pointer;
         }
+        .modal-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 12px;
+            margin-bottom: 4px;
+        }
         .modal-review-item {
             border-top: 1px solid #eee;
             padding: 10px 0;
@@ -101,6 +103,7 @@
         }
     </style>
 </head>
+
 <body>
 <h1 th:text="'마이페이지 - ' + ${nickname}">마이페이지</h1>
 
@@ -111,26 +114,27 @@
     </ul>
 </section>
 
-<!-- 모달: 책 클릭 시 내 리뷰 표시 -->
+<!-- 모달: 책 클릭 시 내 리뷰 + 코멘트 표시 -->
 <div id="review-modal-backdrop" class="modal-backdrop">
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="modal-book-title">책 제목</div>
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
-        <div id="modal-book-link" style="margin-bottom:8px; font-size: 13px;">
-            <!-- 도서 상세 페이지 링크 -->
-        </div>
-        <div id="modal-reviews">
-            <!-- 이 책에 대해 내가 쓴 리뷰들이 들어감 -->
-        </div>
+
+        <div id="modal-book-link" style="margin-bottom:8px; font-size: 13px;"></div>
+
+        <div class="modal-section-title">📝 내가 남긴 리뷰</div>
+        <div id="modal-reviews"></div>
+
+        <div class="modal-section-title" style="margin-top:16px;">💬 내가 남긴 페이지 코멘트</div>
+        <div id="modal-comments"></div>
     </div>
 </div>
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         loadMyBooks();
-        loadMyReviews();
     });
 
     // 1) 카드로 책 목록 표시
@@ -181,142 +185,80 @@
         }
     }
 
-    // 2) 전체 리뷰 목록 (지금 있던 코드 그대로 유지)
-    async function loadMyReviews() {
-        const ul = document.getElementById("my-reviews");
-        ul.innerHTML = "";
-
-        const res = await fetch("/api/me/reviews");
-        if (!res.ok) {
-            ul.innerHTML = "<li>리뷰를 불러오지 못했습니다.</li>";
-            return;
-        }
-        const reviews = await res.json();
-
-        if (reviews.length === 0) {
-            ul.innerHTML = "<li>작성한 총평이 아직 없습니다.</li>";
-            return;
-        }
-
-        for (const r of reviews) {
-            const li = document.createElement("li");
-            li.className = "review-item";
-
-            const meta = document.createElement("div");
-            meta.className = "review-meta";
-            meta.textContent = `ISBN: ${r.isbn13} | 평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'}`;
-
-            const text = document.createElement("div");
-            text.textContent = r.overall;
-
-            const actions = document.createElement("div");
-            actions.className = "actions";
-
-            const editBtn = document.createElement("button");
-            editBtn.textContent = "수정";
-            editBtn.onclick = () => editReview(r);
-
-            const delBtn = document.createElement("button");
-            delBtn.textContent = "삭제";
-            delBtn.onclick = () => deleteReview(r.id);
-
-            actions.appendChild(editBtn);
-            actions.appendChild(delBtn);
-
-            li.appendChild(meta);
-            li.appendChild(text);
-            li.appendChild(actions);
-
-            ul.appendChild(li);
-        }
-    }
-
-    async function editReview(r) {
-        const newText = prompt("새 총평 내용을 입력하세요:", r.overall);
-        if (newText == null) return;
-
-        const newRatingStr = prompt("새 평점(1~5, 빈칸이면 그대로):", r.rating ?? "");
-        let newRating = r.rating;
-        if (newRatingStr !== null && newRatingStr.trim() !== "") {
-            newRating = Number(newRatingStr);
-        }
-
-        const newSpoilerStr = prompt("스포일러 여부 (y/n, 빈칸이면 그대로):", r.spoiler ? "y" : "n");
-        let newSpoiler = r.spoiler;
-        if (newSpoilerStr !== null && newSpoilerStr.trim() !== "") {
-            newSpoiler = newSpoilerStr.toLowerCase().startsWith("y");
-        }
-
-        const res = await fetch(`/api/me/reviews/${r.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                rating: newRating,
-                overall: newText,
-                spoiler: newSpoiler
-            })
-        });
-
-        if (!res.ok) {
-            alert("리뷰 수정에 실패했습니다.");
-            return;
-        }
-
-        await loadMyReviews();
-    }
-
-    async function deleteReview(id) {
-        if (!confirm("이 총평을 삭제하시겠습니까?")) return;
-
-        const res = await fetch(`/api/me/reviews/${id}`, { method: "DELETE" });
-        if (!res.ok) {
-            alert("삭제에 실패했습니다.");
-            return;
-        }
-
-        await loadMyReviews();
-    }
-
-    // 3) 모달 열기: 해당 책에 대해 내가 쓴 리뷰만
+    // 2) 모달 열기: 해당 책에 대해 내가 쓴 리뷰 + 코멘트
     async function openBookModal(isbn13, title) {
-        const backdrop = document.getElementById("review-modal-backdrop");
-        const titleEl = document.getElementById("modal-book-title");
-        const linkEl = document.getElementById("modal-book-link");
-        const listEl = document.getElementById("modal-reviews");
+        const backdrop  = document.getElementById("review-modal-backdrop");
+        const titleEl   = document.getElementById("modal-book-title");
+        const linkEl    = document.getElementById("modal-book-link");
+        const reviewEl  = document.getElementById("modal-reviews");
+        const commentEl = document.getElementById("modal-comments");
 
         titleEl.textContent = title;
         linkEl.innerHTML = `<a href="/books/${isbn13}">도서 상세 페이지로 이동</a>`;
-        listEl.innerHTML = "리뷰를 불러오는 중...";
 
-        const res = await fetch(`/api/me/books/${isbn13}/reviews`);
-        if (!res.ok) {
-            listEl.textContent = "리뷰를 불러오지 못했습니다.";
-            backdrop.classList.add("show");
-            return;
+        reviewEl.innerHTML  = "리뷰를 불러오는 중...";
+        commentEl.innerHTML = "코멘트를 불러오는 중...";
+
+        // 동시에 호출
+        const [reviewRes, commentRes] = await Promise.all([
+            fetch(`/api/me/books/${isbn13}/reviews`),
+            fetch(`/api/me/books/${isbn13}/page-comments`)
+        ]);
+
+        // --- 리뷰 표시 ---
+        if (!reviewRes.ok) {
+            reviewEl.textContent = "리뷰를 불러오지 못했습니다.";
+        } else {
+            const reviews = await reviewRes.json();
+            if (reviews.length === 0) {
+                reviewEl.textContent = "이 책에 남긴 리뷰가 없습니다.";
+            } else {
+                reviewEl.innerHTML = "";
+                for (const r of reviews) {
+                    const div = document.createElement("div");
+                    div.className = "modal-review-item";
+
+                    const meta = document.createElement("div");
+                    meta.className = "modal-review-meta";
+                    meta.textContent =
+                        `평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'} | 작성일: ${r.createdAt ?? ''}`;
+
+                    const body = document.createElement("div");
+                    body.textContent = r.overall;
+
+                    div.appendChild(meta);
+                    div.appendChild(body);
+                    reviewEl.appendChild(div);
+                }
+            }
         }
 
-        const reviews = await res.json(); // MyReviewResponse[]
-        if (reviews.length === 0) {
-            listEl.textContent = "이 책에 남긴 리뷰가 없습니다.";
-            backdrop.classList.add("show");
-            return;
-        }
+        // --- 코멘트 표시 ---
+        if (!commentRes.ok) {
+            commentEl.textContent = "코멘트를 불러오지 못했습니다.";
+        } else {
+            const comments = await commentRes.json(); // MyPageCommentResponse[]
+            if (comments.length === 0) {
+                commentEl.textContent = "이 책에 남긴 코멘트가 없습니다.";
+            } else {
+                commentEl.innerHTML = "";
+                for (const c of comments) {
+                    const div = document.createElement("div");
+                    div.className = "modal-review-item";
 
-        listEl.innerHTML = "";
-        for (const r of reviews) {
-            const div = document.createElement("div");
-            div.className = "modal-review-item";
+                    const meta = document.createElement("div");
+                    meta.className = "modal-review-meta";
+                    meta.textContent =
+                        `p.${c.page} | 작성일: ${c.createdAt ?? ''}`;
 
-            const meta = document.createElement("div");
-            meta.className = "modal-review-meta";
-            meta.textContent = `평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'} | 작성일: ${r.createdAt ?? ''}`;
+                    const body = document.createElement("div");
+                    body.textContent = c.comment;
 
-            const body = document.createElement("div");
-            body.textContent = r.overall;
-
-            div.appendChild(meta);
-            div.appendChild(body);
-            listEl.appendChild(div);
+                    div.appendChild(meta);
+                    div.appendChild(body);
+                    commentEl.appendChild(div);
+                }
+            }
         }
 
         backdrop.classList.add("show");

@@ -1,12 +1,7 @@
 package com.example.demo.project.web;
 
-import com.example.demo.project.api.dto.MyBookResponse;
-import com.example.demo.project.api.dto.MyReviewResponse;
-import com.example.demo.project.api.dto.MyReviewUpdateRequest;
-import com.example.demo.project.domain.Review;
-import com.example.demo.project.domain.ReviewRepository;
-import com.example.demo.project.domain.UserAccount;
-import com.example.demo.project.domain.UserAccountRepository;
+import com.example.demo.project.api.dto.*;
+import com.example.demo.project.domain.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -24,6 +19,7 @@ public class MyPageApiController {
 
     private final UserAccountRepository userAccountRepository;
     private final ReviewRepository reviewRepository;
+    private final PageCommentRepository pageCommentRepository;
 
     private UserAccount getCurrentUser(Authentication authentication) {
         String username = authentication.getName();
@@ -53,6 +49,18 @@ public class MyPageApiController {
         UserAccount me = getCurrentUser(authentication);
 
         return reviewRepository.findByUserOrderByCreatedAtDesc(me).stream()
+                .map(MyReviewResponse::from)
+                .toList();
+    }
+
+    // 2-1) 특정 책에 대해 내가 쓴 리뷰만 조회 (모달용)
+    @GetMapping("/books/{isbn13}/reviews")
+    public List<MyReviewResponse> getMyReviewsForBook(@PathVariable String isbn13,
+                                                      Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
+
+        return reviewRepository.findByUserAndIsbn13OrderByCreatedAtDesc(me, isbn13)
+                .stream()
                 .map(MyReviewResponse::from)
                 .toList();
     }
@@ -92,16 +100,59 @@ public class MyPageApiController {
         reviewRepository.delete(r);
     }
 
-    // 5) 특정 책에 대해 내가 쓴 리뷰만 조회 (모달용)
-    @GetMapping("/books/{isbn13}/reviews")
-    public List<MyReviewResponse> getMyReviewsForBook(@PathVariable String isbn13,
-                                                      Authentication authentication) {
+    // 5) 내가 쓴 페이지 코멘트 목록
+    @GetMapping("/page-comments")
+    public List<MyPageCommentResponse> getMyPageComments(Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
+        return pageCommentRepository.findByUserOrderByCreatedAtDesc(me).stream()
+                .map(MyPageCommentResponse::from)
+                .toList();
+    }
+
+    // 5-1) 특정 책에 대해 내가 쓴 페이지 코멘트만 (마이페이지 모달용)
+    @GetMapping("/books/{isbn13}/page-comments")
+    public List<MyPageCommentResponse> getMyPageCommentsForBook(@PathVariable String isbn13,
+                                                                Authentication authentication) {
         UserAccount me = getCurrentUser(authentication);
 
-        return reviewRepository.findByUserAndIsbn13OrderByCreatedAtDesc(me, isbn13)
+        return pageCommentRepository.findByUserAndIsbn13OrderByPageAsc(me, isbn13)
                 .stream()
-                .map(MyReviewResponse::from)
+                .map(MyPageCommentResponse::from)
                 .toList();
+    }
+
+    // 6) 코멘트 수정
+    @PatchMapping("/page-comments/{id}")
+    public void updateMyPageComment(@PathVariable Long id,
+                                    @RequestBody MyPageCommentUpdateRequest req,
+                                    Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
+
+        PageComment c = pageCommentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        if (!c.getUser().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        c.setComment(req.comment());
+        pageCommentRepository.save(c);
+    }
+
+    // 7) 코멘트 삭제
+    @DeleteMapping("/page-comments/{id}")
+    public void deleteMyPageComment(@PathVariable Long id,
+                                    Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
+
+        PageComment c = pageCommentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        if (!c.getUser().getId().equals(me.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        pageCommentRepository.delete(c);
     }
 
 }
