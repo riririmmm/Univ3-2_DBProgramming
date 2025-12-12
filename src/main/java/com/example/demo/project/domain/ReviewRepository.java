@@ -13,4 +13,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 특정 책의 평균 평점 구하기 (rating IS NOT NULL 인 것만)
     @Query("select avg(r.rating) from Review r where r.isbn13 = :isbn13 and r.rating is not null")
     Double findAvgRatingByIsbn13(String isbn13);
+
+    // 마이페이지용: 로그인 유저 기준 조회
+    List<Review> findByUserOrderByCreatedAtDesc(UserAccount user);
+
+    // 마이페이지용: 로그인 유저 및 isbn 기준 조회
+    List<Review> findByUserAndIsbn13OrderByCreatedAtDesc(UserAccount user, String isbn13);
+
 }
