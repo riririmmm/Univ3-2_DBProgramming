@@ -3,105 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>마이페이지</title>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 40px auto; }
-        h1 { font-size: 28px; margin-bottom: 20px; }
-        h2 { margin-top: 30px; }
 
-        /* 책 카드 리스트 */
-        #my-books {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        .book-card {
-            width: 140px;
-            cursor: pointer;
-            border-radius: 8px;
-            border: 1px solid #eee;
-            padding: 8px;
-            box-sizing: border-box;
-            text-align: center;
-            transition: transform 0.1s ease, box-shadow 0.1s ease;
-        }
-        .book-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        }
-        .book-cover {
-            width: 100%;
-            height: 190px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-bottom: 6px;
-        }
-        .book-title {
-            font-size: 13px;
-            font-weight: 600;
-            line-height: 1.3;
-        }
-
-        /* 공통 리스트 / 텍스트 */
-        ul { list-style: none; padding-left: 0; }
-        li { padding: 8px 0; border-bottom: 1px solid #eee; }
-
-        /* 모달 */
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .modal-backdrop.show {
-            display: flex;
-        }
-        .modal {
-            background: white;
-            width: 500px;
-            max-height: 80vh;
-            border-radius: 10px;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .modal-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
-        .modal-close {
-            border: none;
-            background: none;
-            font-size: 18px;
-            cursor: pointer;
-        }
-        .modal-section-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 12px;
-            margin-bottom: 4px;
-        }
-        .modal-review-item {
-            border-top: 1px solid #eee;
-            padding: 10px 0;
-        }
-        .modal-review-meta {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 4px;
-        }
-    </style>
+    <!-- CSS 분리 -->
+    <link rel="stylesheet" th:href="@{/css/mypage.css}">
 </head>
 
 <body>
@@ -119,7 +23,7 @@
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="modal-book-title">책 제목</div>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+            <button class="modal-close" id="modal-close-btn" type="button">✕</button>
         </div>
 
         <div id="modal-book-link" style="margin-bottom:8px; font-size: 13px;"></div>
@@ -132,141 +36,8 @@
     </div>
 </div>
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        loadMyBooks();
-    });
+<!-- JS 분리 -->
+<script th:src="@{/js/mypage.js}" defer></script>
 
-    // 1) 카드로 책 목록 표시
-    async function loadMyBooks() {
-        const container = document.getElementById("my-books");
-        container.innerHTML = "";
-
-        const res = await fetch("/api/me/books");
-        if (!res.ok) {
-            container.innerHTML = "<li>책 목록을 불러오지 못했습니다.</li>";
-            return;
-        }
-        const books = await res.json();   // [{ isbn13: "..." }, ...]
-
-        if (books.length === 0) {
-            container.innerHTML = "<li>리뷰를 남긴 책이 아직 없습니다.</li>";
-            return;
-        }
-
-        for (const b of books) {
-            const li = document.createElement("li");
-            li.className = "book-card";
-
-            try {
-                // 책 상세 정보 가져오기 (제목/표지)
-                const detailRes = await fetch(`/api/books/${b.isbn13}`);
-                if (!detailRes.ok) continue;
-                const book = await detailRes.json();   // BookView
-
-                const img = document.createElement("img");
-                img.className = "book-cover";
-                img.src = book.coverUrl || "";
-                img.alt = book.title;
-
-                const titleDiv = document.createElement("div");
-                titleDiv.className = "book-title";
-                titleDiv.textContent = book.title || b.isbn13;
-
-                li.appendChild(img);
-                li.appendChild(titleDiv);
-
-                li.onclick = () => openBookModal(b.isbn13, book.title || b.isbn13);
-
-                container.appendChild(li);
-            } catch (e) {
-                console.error("책 상세 조회 실패", e);
-            }
-        }
-    }
-
-    // 2) 모달 열기: 해당 책에 대해 내가 쓴 리뷰 + 코멘트
-    async function openBookModal(isbn13, title) {
-        const backdrop  = document.getElementById("review-modal-backdrop");
-        const titleEl   = document.getElementById("modal-book-title");
-        const linkEl    = document.getElementById("modal-book-link");
-        const reviewEl  = document.getElementById("modal-reviews");
-        const commentEl = document.getElementById("modal-comments");
-
-        titleEl.textContent = title;
-        linkEl.innerHTML = `<a href="/books/${isbn13}">도서 상세 페이지로 이동</a>`;
-
-        reviewEl.innerHTML  = "리뷰를 불러오는 중...";
-        commentEl.innerHTML = "코멘트를 불러오는 중...";
-
-        // 동시에 호출
-        const [reviewRes, commentRes] = await Promise.all([
-            fetch(`/api/me/books/${isbn13}/reviews`),
-            fetch(`/api/me/books/${isbn13}/page-comments`)
-        ]);
-
-        // --- 리뷰 표시 ---
-        if (!reviewRes.ok) {
-            reviewEl.textContent = "리뷰를 불러오지 못했습니다.";
-        } else {
-            const reviews = await reviewRes.json();
-            if (reviews.length === 0) {
-                reviewEl.textContent = "이 책에 남긴 리뷰가 없습니다.";
-            } else {
-                reviewEl.innerHTML = "";
-                for (const r of reviews) {
-                    const div = document.createElement("div");
-                    div.className = "modal-review-item";
-
-                    const meta = document.createElement("div");
-                    meta.className = "modal-review-meta";
-                    meta.textContent =
-                        `평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'} | 작성일: ${r.createdAt ?? ''}`;
-
-                    const body = document.createElement("div");
-                    body.textContent = r.overall;
-
-                    div.appendChild(meta);
-                    div.appendChild(body);
-                    reviewEl.appendChild(div);
-                }
-            }
-        }
-
-        // --- 코멘트 표시 ---
-        if (!commentRes.ok) {
-            commentEl.textContent = "코멘트를 불러오지 못했습니다.";
-        } else {
-            const comments = await commentRes.json(); // MyPageCommentResponse[]
-            if (comments.length === 0) {
-                commentEl.textContent = "이 책에 남긴 코멘트가 없습니다.";
-            } else {
-                commentEl.innerHTML = "";
-                for (const c of comments) {
-                    const div = document.createElement("div");
-                    div.className = "modal-review-item";
-
-                    const meta = document.createElement("div");
-                    meta.className = "modal-review-meta";
-                    meta.textContent =
-                        `p.${c.page} | 작성일: ${c.createdAt ?? ''}`;
-
-                    const body = document.createElement("div");
-                    body.textContent = c.comment;
-
-                    div.appendChild(meta);
-                    div.appendChild(body);
-                    commentEl.appendChild(div);
-                }
-            }
-        }
-
-        backdrop.classList.add("show");
-    }
-
-    function closeModal() {
-        document.getElementById("review-modal-backdrop").classList.remove("show");
-    }
-</script>
 </body>
 </html>

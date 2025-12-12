@@ -1,39 +1,93 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>도서 상세</title>
 
-    <!-- 나중에 css도 빼고 싶으면 /static/css/book-detail.css 로 옮기면 됨 -->
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; }
-        .layout { display: flex; gap: 16px; }
-        .cover { width: 400px; }
-        .cover img { width: 100%; object-fit: cover; }
-        .info h1 { margin: 0 0 8px; font-size: 1.5rem; }
-        .meta { color: #555; margin-bottom: 8px; }
-        .pages { color: #555; margin-bottom: 8px; }
-        .desc { margin-bottom: 16px; white-space: pre-line; }
-        section { margin-top: 24px; }
-        section h2 { font-size: 1.1rem; margin-bottom: 8px; }
-        input[type="number"], textarea {
-            width: 100%; padding: 6px; box-sizing: border-box;
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
         }
-        button { padding: 6px 10px; margin-top: 4px; cursor: pointer; }
-        a { display:block; margin-bottom: 20px; }
+
+        .layout {
+            display: flex;
+            gap: 16px;
+        }
+
+        .cover {
+            width: 400px;
+        }
+
+        .cover img {
+            width: 100%;
+            object-fit: cover;
+        }
+
+        .info h1 {
+            margin: 0 0 8px;
+            font-size: 1.5rem;
+        }
+
+        .meta {
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .pages {
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .desc {
+            margin-bottom: 16px;
+            white-space: pre-line;
+        }
+
+        section {
+            margin-top: 24px;
+        }
+
+        section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        input[type="number"], textarea {
+            width: 100%;
+            padding: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 6px 10px;
+            margin-top: 4px;
+            cursor: pointer;
+        }
+
+        a {
+            display: block;
+            margin-bottom: 20px;
+        }
 
         /* ===== 페이지 코멘트 모달 ===== */
-        .modal.hidden { display: none; }
+        .modal.hidden {
+            display: none;
+        }
+
         .modal {
             position: fixed;
             inset: 0;
             z-index: 9999;
         }
+
         .modal-backdrop {
             position: absolute;
             inset: 0;
-            background: rgba(0,0,0,0.45);
+            background: rgba(0, 0, 0, 0.45);
         }
+
         .modal-content {
             position: relative;
             max-width: 650px;
@@ -41,25 +95,32 @@
             background: #fff;
             border-radius: 8px;
             padding: 16px 20px 20px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
         }
+
         .modal-header h2 {
             margin: 0;
             font-size: 1.2rem;
         }
+
         .close-btn {
             border: none;
             background: transparent;
             font-size: 18px;
             cursor: pointer;
         }
-        .modal-body { font-size: 0.95rem; }
+
+        .modal-body {
+            font-size: 0.95rem;
+        }
+
         .comment-list {
             list-style: none;
             padding: 0;
@@ -69,17 +130,23 @@
             max-height: 260px;
             overflow-y: auto;
         }
+
         .comment-list-empty {
             padding: 8px;
             color: #666;
             font-size: 0.9rem;
         }
+
         .comment-item {
             border-bottom: 1px solid #eee;
             padding: 6px 8px;
             font-size: 0.9rem;
         }
-        .comment-item:last-child { border-bottom: none; }
+
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+
         .comment-meta {
             font-size: 0.8rem;
             color: #777;
@@ -94,11 +161,13 @@
             margin-bottom: 8px;
             font-size: 0.9rem;
         }
+
         .review-meta {
             font-size: 0.8rem;
             color: #777;
             margin-bottom: 4px;
         }
+
         .review-body {
             white-space: pre-line;
         }
@@ -110,7 +179,7 @@
 
 <div class="layout">
     <div class="cover">
-        <img id="cover" src="" alt="cover">
+        <img alt="cover" id="cover" src="">
     </div>
     <div class="info">
         <h1 id="title">제목</h1>
@@ -126,7 +195,7 @@
         현재 페이지: <span id="currentPage">0</span>
     </div>
     <div style="margin-top:6px;">
-        <input id="progressInput" type="number" min="0" placeholder="현재 읽은 페이지">
+        <input id="progressInput" min="0" placeholder="현재 읽은 페이지" type="number">
         <button id="progressBtn">저장</button>
     </div>
 </section>
@@ -137,12 +206,12 @@
     <button id="openCommentModalBtn">페이지 코멘트 창 열기</button>
 
     <div style="margin-top:10px;">
-        <input id="quickCommentPage" type="number" min="1"
-               placeholder="코멘트를 남길 페이지 번호">
+        <input id="quickCommentPage" min="1" placeholder="코멘트를 남길 페이지 번호"
+               type="number">
     </div>
     <div style="margin-top:4px;">
-        <textarea id="quickCommentText" rows="3"
-                  placeholder="이 페이지에 대한 코멘트를 바로 작성해 저장할 수 있습니다."></textarea>
+        <textarea id="quickCommentText" placeholder="이 페이지에 대한 코멘트를 바로 작성해 저장할 수 있습니다."
+                  rows="3"></textarea>
         <button id="quickCommentBtn" type="button">코멘트 추가</button>
     </div>
 </section>
@@ -161,41 +230,41 @@
 
         <div>
             <label for="reviewRating">평점 (1~5):</label>
-            <input type="number"
-                   id="reviewRating"
-                   min="1"
+            <input id="reviewRating"
                    max="5"
+                   min="1"
+                   placeholder="예: 4.5"
                    step="0.1"
-                   placeholder="예: 4.5">
+                   type="number">
         </div>
 
         <label>
-            <input type="checkbox" id="reviewSpoiler">
+            <input id="reviewSpoiler" type="checkbox">
             스포일러 포함
         </label>
 
-        <button type="button" onclick="saveReview()">리뷰 저장</button>
+        <button onclick="saveReview()" type="button">리뷰 저장</button>
     </div>
 </section>
 
 <!-- 모달 -->
-<div id="commentModal" class="modal hidden">
+<div class="modal hidden" id="commentModal">
     <div class="modal-backdrop"></div>
     <div class="modal-content">
         <div class="modal-header">
             <h2>페이지 코멘트</h2>
-            <button type="button" class="close-btn" id="closeCommentModalBtn">✕</button>
+            <button class="close-btn" id="closeCommentModalBtn" type="button">✕</button>
         </div>
         <div class="modal-body">
 
             <div style="margin-bottom:10px;">
                 <label>
                     페이지:
-                    <input id="modalCommentPage" type="number" min="1" style="width:80px;">
+                    <input id="modalCommentPage" min="1" style="width:80px;" type="number">
                 </label>
             </div>
             <div style="margin-bottom:10px;">
-                <textarea id="modalCommentText" rows="3" placeholder="이 페이지에 대한 코멘트를 작성하세요"></textarea>
+                <textarea id="modalCommentText" placeholder="이 페이지에 대한 코멘트를 작성하세요" rows="3"></textarea>
                 <button id="modalAddCommentBtn" type="button">코멘트 추가</button>
             </div>
 
@@ -203,9 +272,9 @@
                 <div style="margin-bottom:6px; font-weight:600;">표시 옵션</div>
                 <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
                     <span>페이지 범위:</span>
-                    <input id="filterFrom" type="number" min="1" placeholder="from" style="width:80px;">
+                    <input id="filterFrom" min="1" placeholder="from" style="width:80px;" type="number">
                     <span>~</span>
-                    <input id="filterTo" type="number" min="1" placeholder="to" style="width:80px;">
+                    <input id="filterTo" min="1" placeholder="to" style="width:80px;" type="number">
 
                     <span style="margin-left:12px;">정렬:</span>
                     <select id="sortOrder">
@@ -219,12 +288,12 @@
             </div>
 
             <div id="modalPageInfo" style="font-size:0.9rem; color:#555; margin-bottom:6px;"></div>
-            <ul id="modalCommentList" class="comment-list"></ul>
+            <ul class="comment-list" id="modalCommentList"></ul>
         </div>
     </div>
 </div>
 
-<input type="hidden" id="isbn13Hidden" th:value="${isbn13}"/>
+<input id="isbn13Hidden" th:value="${isbn13}" type="hidden"/>
 
 <script src="/js/book-detail.js"></script>
 
