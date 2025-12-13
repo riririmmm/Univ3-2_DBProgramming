@@ -1,313 +1,9 @@
-document.addEventListener("click", async (e) => {
-    // 1) 케밥(⋯) 버튼
-    const kebab = e.target.closest(".kebab");
-    if (kebab) {
-        closeAllMenus();
-        const panel = kebab.parentElement.querySelector(".menu-panel");
-        panel.classList.toggle("show");
-        e.stopPropagation();
-        return;
-    }
-
-    // 2) 메뉴 아이템(수정/삭제) 클릭
-    const actionBtn = e.target.closest(".menu-item");
-    if (!actionBtn) return;
-
-    const action = actionBtn.dataset.action; // edit-review / delete-review / edit-comment / delete-comment
-    const id = actionBtn.dataset.id;
-
-    if (!action || !id) return;
-
-    // === 리뷰 ===
-    if (action === "delete-review") {
-        if (!confirm("리뷰를 삭제하시겠습니까?")) return;
-
-        const res = await fetch(`/api/me/reviews/${id}`, { method: "DELETE" });
-        if (!res.ok) return alert("삭제 실패");
-
-        alert("삭제 완료");
-        closeAllMenus();
-        location.reload();
-        return;
-    }
-
-    if (action === "edit-review") {
-        const newText = prompt("리뷰 내용을 수정하시겠습니까?");
-        if (newText == null) return;
-
-        const res = await fetch(`/api/me/reviews/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ overall: newText }),
-        });
-        if (!res.ok) return alert("수정 실패");
-
-        alert("수정 완료");
-        closeAllMenus();
-        location.reload();
-        return;
-    }
-
-    // === 코멘트 ===
-    if (action === "delete-comment") {
-        if (!confirm("코멘트를 삭제할까요?")) return;
-
-        const res = await fetch(`/api/me/page-comments/${id}`, { method: "DELETE" });
-        if (!res.ok) return alert("삭제 실패");
-
-        alert("삭제 완료");
-        closeAllMenus();
-        location.reload();
-        return;
-    }
-
-    if (action === "edit-comment") {
-        const newText = prompt("코멘트 내용을 수정해줘");
-        if (newText == null) return;
-
-        const res = await fetch(`/api/me/page-comments/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ comment: newText }),
-        });
-        if (!res.ok) return alert("수정 실패");
-
-        alert("수정 완료");
-        closeAllMenus();
-        location.reload();
-        return;
-    }
-});
-
-
-// 1) 카드로 책 목록 표시
-async function loadMyBooks() {
-    const container = document.getElementById("my-books");
-    container.innerHTML = "";
-
-    // 리뷰 책 목록 + 코멘트 책 목록 동시에 받기
-    const [reviewRes, commentRes] = await Promise.all([
-        fetch("/api/me/books"),          // 리뷰 기반 책 목록
-        fetch("/api/me/page-comments"),  // 코멘트 기반 책 목록
-    ]);
-
-    const reviewBooks  = reviewRes.ok  ? await reviewRes.json()  : [];
-    const commentBooks = commentRes.ok ? await commentRes.json() : [];
-
-    // isbn13 기준 중복 제거
-    const map = new Map();
-    [...reviewBooks, ...commentBooks].forEach(b => {
-        if (b && b.isbn13) map.set(b.isbn13, { isbn13: b.isbn13 });
-    });
-    const books = [...map.values()];
-
-    if (books.length === 0) {
-        container.innerHTML = "<li>리뷰/코멘트를 남긴 책이 아직 없습니다.</li>";
-        return;
-    }
-
-    for (const b of books) {
-        const li = document.createElement("li");
-        li.className = "book-card";
-
-        try {
-            // 책 상세 정보 가져오기 (제목/표지)
-            const detailRes = await fetch(`/api/books/${b.isbn13}`);
-            if (!detailRes.ok) continue;
-            const book = await detailRes.json(); // BookView
-
-            const img = document.createElement("img");
-            img.className = "book-cover";
-            img.src = book.coverUrl || "";
-            img.alt = book.title || "";
-
-            const titleDiv = document.createElement("div");
-            titleDiv.className = "book-title";
-            titleDiv.textContent = book.title || b.isbn13;
-
-            li.appendChild(img);
-            li.appendChild(titleDiv);
-
-            li.addEventListener("click", () =>
-                openBookModal(b.isbn13, book.title || b.isbn13)
-            );
-
-            container.appendChild(li);
-        } catch (e) {
-            console.error("책 상세 조회 실패", e);
-        }
-    }
-}
-
-// 2) 모달 열기: 해당 책에 대해 내가 쓴 리뷰 + 코멘트
-async function openBookModal(isbn13, title) {
-    const backdrop = document.getElementById("review-modal-backdrop");
-    const titleEl = document.getElementById("modal-book-title");
-    const linkEl = document.getElementById("modal-book-link");
-    const reviewEl = document.getElementById("modal-reviews");
-    const commentEl = document.getElementById("modal-comments");
-
-    titleEl.textContent = title;
-    linkEl.innerHTML = `<a href="/books/${isbn13}">도서 상세 페이지로 이동</a>`;
-
-    reviewEl.textContent = "리뷰를 불러오는 중...";
-    commentEl.textContent = "코멘트를 불러오는 중...";
-
-    const [reviewRes, commentRes] = await Promise.all([fetch(`/api/me/books/${isbn13}/reviews`), fetch(`/api/me/books/${isbn13}/page-comments`),]);
-
-    // --- 리뷰 표시 ---
-    if (!reviewRes.ok) {
-        reviewEl.textContent = "리뷰를 불러오지 못했습니다.";
-    } else {
-        const reviews = await reviewRes.json();
-        if (reviews.length === 0) {
-            reviewEl.textContent = "이 책에 남긴 리뷰가 없습니다.";
-        } else {
-            reviewEl.innerHTML = "";
-            for (const r of reviews) {
-                const div = document.createElement("div");
-                div.className = "modal-review-item";
-
-                // 헤더(메타 + 메뉴)
-                const head = document.createElement("div");
-                head.className = "item-head";
-
-                const meta = document.createElement("div");
-                meta.className = "modal-review-meta";
-                meta.textContent = `평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'} | 작성일: ${r.createdAt ?? ''}`;
-
-                const menu = document.createElement("div");
-                menu.className = "menu";
-                menu.innerHTML = `
-                    <button class="kebab" type="button" aria-label="menu">⋯</button>
-                    <div class="menu-panel">
-                        <button class="menu-item" type="button" data-action="edit-review" data-id="${r.id}">수정하기</button>
-                        <button class="menu-item danger" type="button" data-action="delete-review" data-id="${r.id}">삭제하기</button>
-                    </div>
-                `;
-
-                head.appendChild(meta);
-                head.appendChild(menu);
-
-                const body = document.createElement("div");
-                body.textContent = r.overall;
-
-                div.appendChild(head);
-                div.appendChild(body);
-                reviewEl.appendChild(div);
-            }
-        }
-    }
-
-    // --- 코멘트 표시 ---
-    if (!commentRes.ok) {
-        commentEl.textContent = "코멘트를 불러오지 못했습니다.";
-    } else {
-        const comments = await commentRes.json(); // MyPageCommentResponse[]
-        if (comments.length === 0) {
-            commentEl.textContent = "이 책에 남긴 코멘트가 없습니다.";
-        } else {
-            commentEl.innerHTML = "";
-            for (const c of comments) {
-                const div = document.createElement("div");
-                div.className = "modal-review-item";
-
-                const head = document.createElement("div");
-                head.className = "item-head";
-
-                const meta = document.createElement("div");
-                meta.className = "modal-review-meta";
-                meta.textContent = `p.${c.page} | 작성일: ${c.createdAt ?? ''}`;
-
-                const menu = document.createElement("div");
-                menu.className = "menu";
-                menu.innerHTML = `
-                    <button class="kebab" type="button" aria-label="menu">⋯</button>
-                    <div class="menu-panel">
-                      <button class="menu-item" type="button" data-action="edit-comment" data-id="${c.id}">수정하기</button>
-                      <button class="menu-item danger" type="button" data-action="delete-comment" data-id="${c.id}">삭제하기</button>
-                    </div>
-                `;
-
-                head.appendChild(meta);
-                head.appendChild(menu);
-
-                const body = document.createElement("div");
-                body.textContent = c.comment;
-
-                div.appendChild(head);
-                div.appendChild(body);
-                commentEl.appendChild(div);
-            }
-        }
-    }
-
-    backdrop.classList.add("show");
-}
-
-// 리뷰 영역 이벤트 위임
-document.addEventListener("click", async (e) => {
-    // 케밥 버튼
-    const kebab = e.target.closest(".kebab");
-    if (kebab) {
-        closeAllMenus();
-        const panel = kebab.parentElement.querySelector(".menu-panel");
-        panel.classList.toggle("show");
-        e.stopPropagation();
-        return;
-    }
-
-    // 메뉴 아이템 액션
-    const actionBtn = e.target.closest(".menu-item");
-    if (!actionBtn) return;
-
-    const action = actionBtn.dataset.action;
-    const id = actionBtn.dataset.id;
-
-    if (action === "delete-review") {
-        if (!confirm("리뷰를 삭제할까요?")) return;
-
-        // TODO: 너 백엔드에 맞게 URL/메서드 수정
-        const res = await fetch(`/api/me/reviews/${id}`, { method: "DELETE" });
-        if (!res.ok) return alert("삭제 실패");
-
-        alert("삭제 완료");
-        closeAllMenus();
-        // 간단히: 모달 다시 열기(현재 책 isbn을 저장해두면 더 깔끔)
-        location.reload();
-    }
-
-    if (action === "edit-review") {
-        // 아주 간단한 방식: prompt로 수정(나중에 폼 모달로 바꾸면 됨)
-        const newText = prompt("리뷰 내용을 수정해줘");
-        if (newText == null) return;
-
-        const res = await fetch(`/api/me/reviews/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ overall: newText }),
-        });
-        if (!res.ok) return alert("수정 실패");
-
-        alert("수정 완료");
-        closeAllMenus();
-        location.reload();
-    }
-});
-
-function closeModal() {
-    document.getElementById("review-modal-backdrop")?.classList.remove("show");
-}
-
-function closeAllMenus() {
-    document.querySelectorAll(".menu-panel.show")
-        .forEach(p => p.classList.remove("show"));
-}
 document.addEventListener("DOMContentLoaded", () => {
+    // 모달 닫기 버튼
     const closeBtn = document.getElementById("modal-close-btn");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
-    // 배경 클릭하면 닫기(원하면 삭제)
+    // 모달 배경 클릭 시 닫기
     const backdrop = document.getElementById("review-modal-backdrop");
     if (backdrop) {
         backdrop.addEventListener("click", (e) => {
@@ -315,26 +11,31 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // 페이지 진입 시 내 책 목록 로드
     loadMyBooks();
 });
 
-// 1) 카드로 책 목록 표시
+/**
+ * 내가 리뷰 or 코멘트 남긴 책 목록 로드
+ * - 리뷰 기반 책 + 코멘트 기반 책을 합쳐서
+ * - isbn13 기준으로 중복 제거
+ */
 async function loadMyBooks() {
     const container = document.getElementById("my-books");
     container.innerHTML = "";
 
-    // 리뷰 책 목록 + 코멘트 책 목록 동시에 받기
+    // 리뷰 책 목록 + 코멘트 책 목록 동시에 요청
     const [reviewRes, commentRes] = await Promise.all([
-        fetch("/api/me/books"),          // 리뷰 기반 책 목록
-        fetch("/api/me/page-comments"),  // 코멘트 기반 책 목록
+        fetch("/api/me/books"),
+        fetch("/api/me/page-comments"),
     ]);
 
-    const reviewBooks  = reviewRes.ok  ? await reviewRes.json()  : [];
+    const reviewBooks = reviewRes.ok ? await reviewRes.json() : [];
     const commentBooks = commentRes.ok ? await commentRes.json() : [];
 
     // isbn13 기준 중복 제거
     const map = new Map();
-    [...reviewBooks, ...commentBooks].forEach(b => {
+    [...reviewBooks, ...commentBooks].forEach((b) => {
         if (b && b.isbn13) map.set(b.isbn13, { isbn13: b.isbn13 });
     });
     const books = [...map.values()];
@@ -344,15 +45,16 @@ async function loadMyBooks() {
         return;
     }
 
+    // 카드 렌더링
     for (const b of books) {
         const li = document.createElement("li");
         li.className = "book-card";
 
         try {
-            // 책 상세 정보 가져오기 (제목/표지)
+            // 책 상세 정보 조회 (제목 / 표지)
             const detailRes = await fetch(`/api/books/${b.isbn13}`);
             if (!detailRes.ok) continue;
-            const book = await detailRes.json(); // BookView
+            const book = await detailRes.json();
 
             const img = document.createElement("img");
             img.className = "book-cover";
@@ -366,6 +68,7 @@ async function loadMyBooks() {
             li.appendChild(img);
             li.appendChild(titleDiv);
 
+            // 카드 클릭 → 모달 열기
             li.addEventListener("click", () =>
                 openBookModal(b.isbn13, book.title || b.isbn13)
             );
@@ -377,7 +80,8 @@ async function loadMyBooks() {
     }
 }
 
-// 2) 모달 열기: 해당 책에 대해 내가 쓴 리뷰 + 코멘트
+// 책 클릭 시 모달 열기
+// 해당 책에 대해 내가 쓴 리뷰 + 페이지 코멘트 조회
 async function openBookModal(isbn13, title) {
     const backdrop = document.getElementById("review-modal-backdrop");
     const titleEl = document.getElementById("modal-book-title");
@@ -391,9 +95,13 @@ async function openBookModal(isbn13, title) {
     reviewEl.textContent = "리뷰를 불러오는 중...";
     commentEl.textContent = "코멘트를 불러오는 중...";
 
-    const [reviewRes, commentRes] = await Promise.all([fetch(`/api/me/books/${isbn13}/reviews`), fetch(`/api/me/books/${isbn13}/page-comments`),]);
+    // 리뷰 / 코멘트 동시에 요청
+    const [reviewRes, commentRes] = await Promise.all([
+        fetch(`/api/me/books/${isbn13}/reviews`),
+        fetch(`/api/me/books/${isbn13}/page-comments`),
+    ]);
 
-    // --- 리뷰 표시 ---
+    /* ===== 리뷰 렌더링 ===== */
     if (!reviewRes.ok) {
         reviewEl.textContent = "리뷰를 불러오지 못했습니다.";
     } else {
@@ -403,79 +111,44 @@ async function openBookModal(isbn13, title) {
         } else {
             reviewEl.innerHTML = "";
             for (const r of reviews) {
-                const div = document.createElement("div");
-                div.className = "modal-review-item";
+                reviewEl.appendChild(
+                    createItem({
+                        meta: `평점: ${r.rating ?? "-"} | 스포일러: ${
+                            r.spoiler ? "O" : "X"
+                        } | 작성일: ${r.createdAt ?? ""}`,
+                        body: r.overall,
+                        editAction: "edit-review",
+                        deleteAction: "delete-review",
+                        id: r.id,
 
-                // 헤더(메타 + 메뉴)
-                const head = document.createElement("div");
-                head.className = "item-head";
-
-                const meta = document.createElement("div");
-                meta.className = "modal-review-meta";
-                meta.textContent = `평점: ${r.rating ?? '-'} | 스포일러: ${r.spoiler ? 'O' : 'X'} | 작성일: ${r.createdAt ?? ''}`;
-
-                const menu = document.createElement("div");
-                menu.className = "menu";
-                menu.innerHTML = `
-                    <button class="kebab" type="button" aria-label="menu">⋯</button>
-                    <div class="menu-panel">
-                        <button class="menu-item" type="button" data-action="edit-review" data-id="${r.id}">수정하기</button>
-                        <button class="menu-item danger" type="button" data-action="delete-review" data-id="${r.id}">삭제하기</button>
-                    </div>
-                `;
-
-                head.appendChild(meta);
-                head.appendChild(menu);
-
-                const body = document.createElement("div");
-                body.textContent = r.overall;
-
-                div.appendChild(head);
-                div.appendChild(body);
-                reviewEl.appendChild(div);
+                        // 인라인 편집에 필요
+                        rating: r.rating ?? null,
+                        spoiler: !!r.spoiler,
+                    })
+                );
             }
         }
     }
 
-    // --- 코멘트 표시 ---
+    /* ===== 코멘트 렌더링 ===== */
     if (!commentRes.ok) {
         commentEl.textContent = "코멘트를 불러오지 못했습니다.";
     } else {
-        const comments = await commentRes.json(); // MyPageCommentResponse[]
+        const comments = await commentRes.json();
         if (comments.length === 0) {
             commentEl.textContent = "이 책에 남긴 코멘트가 없습니다.";
         } else {
             commentEl.innerHTML = "";
             for (const c of comments) {
-                const div = document.createElement("div");
-                div.className = "modal-review-item";
-
-                const head = document.createElement("div");
-                head.className = "item-head";
-
-                const meta = document.createElement("div");
-                meta.className = "modal-review-meta";
-                meta.textContent = `p.${c.page} | 작성일: ${c.createdAt ?? ''}`;
-
-                const menu = document.createElement("div");
-                menu.className = "menu";
-                menu.innerHTML = `
-                    <button class="kebab" type="button" aria-label="menu">⋯</button>
-                    <div class="menu-panel">
-                      <button class="menu-item" type="button" data-action="edit-comment" data-id="${c.id}">수정하기</button>
-                      <button class="menu-item danger" type="button" data-action="delete-comment" data-id="${c.id}">삭제하기</button>
-                    </div>
-                `;
-
-                head.appendChild(meta);
-                head.appendChild(menu);
-
-                const body = document.createElement("div");
-                body.textContent = c.comment;
-
-                div.appendChild(head);
-                div.appendChild(body);
-                commentEl.appendChild(div);
+                commentEl.appendChild(
+                    createItem({
+                        meta: `p.${c.page} | 작성일: ${c.createdAt ?? ""}`,
+                        body: c.comment,
+                        editAction: "edit-comment",
+                        deleteAction: "delete-comment",
+                        id: c.id,
+                    })
+                );
             }
         }
     }
@@ -483,52 +156,240 @@ async function openBookModal(isbn13, title) {
     backdrop.classList.add("show");
 }
 
-// 리뷰 영역 이벤트 위임
+// 공통 아이템(리뷰/코멘트) DOM 생성
+// 리뷰는 rating/spoiler를 dataset에 저장해 인라인 편집에 사용
+function createItem({ meta, body, editAction, deleteAction, id, rating, spoiler }) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "modal-review-item";
+
+    // 리뷰일 때만 dataset 저장
+    if (editAction === "edit-review") {
+        wrapper.dataset.rating = rating ?? "";
+        wrapper.dataset.spoiler = spoiler ? "true" : "false";
+    }
+
+    const head = document.createElement("div");
+    head.className = "item-head";
+
+    const metaDiv = document.createElement("div");
+    metaDiv.className = "modal-review-meta";
+    metaDiv.textContent = meta;
+
+    const menu = document.createElement("div");
+    menu.className = "menu";
+    menu.innerHTML = `
+        <button class="kebab" type="button" aria-label="menu">⋯</button>
+        <div class="menu-panel">
+            <button class="menu-item" type="button" data-action="${editAction}" data-id="${id}">수정하기</button>
+            <button class="menu-item danger" type="button" data-action="${deleteAction}" data-id="${id}">삭제하기</button>
+        </div>
+    `;
+
+    head.appendChild(metaDiv);
+    head.appendChild(menu);
+
+    const bodyDiv = document.createElement("div");
+    bodyDiv.className = "item-body";
+    bodyDiv.textContent = body;
+
+    wrapper.appendChild(head);
+    wrapper.appendChild(bodyDiv);
+    return wrapper;
+}
+
+/**
+ * 메뉴(⋯) / 수정 / 삭제 이벤트 위임
+ * - 수정/삭제 후 location.reload() 안 함
+ * - 모달 안 닫힘
+ * - DOM에서 바로 반영
+ */
 document.addEventListener("click", async (e) => {
-    // 케밥 버튼
+    // 1) ⋯ 버튼 클릭
     const kebab = e.target.closest(".kebab");
     if (kebab) {
         closeAllMenus();
         const panel = kebab.parentElement.querySelector(".menu-panel");
-        panel.classList.toggle("show");
+        panel?.classList.toggle("show");
         e.stopPropagation();
         return;
     }
 
+    // 2) 메뉴 아이템 클릭
+    const actionBtn = e.target.closest(".menu-item");
+    if (!actionBtn) return;
+
+    const { action, id } = actionBtn.dataset;
+    if (!action || !id) return;
+
+    // === 리뷰 삭제 ===
+    if (action === "delete-review") {
+        if (!confirm("리뷰를 삭제하시겠습니까?")) return;
+
+        const res = await fetch(`/api/me/reviews/${id}`, { method: "DELETE" });
+        if (!res.ok) return alert("삭제 실패");
+
+        actionBtn.closest(".modal-review-item")?.remove();
+        closeAllMenus();
+        return;
+    }
+
+    // === 리뷰 수정(인라인 편집) ===
+    if (action === "edit-review") {
+        const item = actionBtn.closest(".modal-review-item");
+        if (!item) return;
+
+        // 이미 편집 중이면 중복 방지
+        if (item.querySelector(".edit-form")) {
+            closeAllMenus();
+            return;
+        }
+
+        const metaDiv = item.querySelector(".modal-review-meta");
+        const bodyDiv = item.querySelector(".item-body");
+
+        const originalText = bodyDiv?.textContent ?? "";
+        const originalRating = item.dataset.rating === "" ? "" : item.dataset.rating;
+        const originalSpoiler = item.dataset.spoiler === "true";
+
+        // 인라인 편집 폼 생성
+        const form = document.createElement("div");
+        form.className = "edit-form";
+        form.innerHTML = `
+          <div style="display:flex; gap:12px; align-items:center; margin:8px 0;">
+            <label style="display:flex; gap:6px; align-items:center;">
+              <span>별점</span>
+              <select class="edit-rating">
+                <option value="">-</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+
+            <label style="display:flex; gap:6px; align-items:center;">
+              <input type="checkbox" class="edit-spoiler" />
+              <span>스포일러</span>
+            </label>
+          </div>
+
+          <textarea class="edit-overall" rows="4" style="width:100%; box-sizing:border-box;"></textarea>
+
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+            <button type="button" class="edit-cancel">취소</button>
+            <button type="button" class="edit-save">저장</button>
+          </div>
+        `;
+
+        // 기존 텍스트 숨기고 폼 붙이기
+        bodyDiv.style.display = "none";
+        item.appendChild(form);
+
+        // 초기값 세팅
+        const ratingSel = form.querySelector(".edit-rating");
+        const spoilerChk = form.querySelector(".edit-spoiler");
+        const overallTa = form.querySelector(".edit-overall");
+
+        ratingSel.value =
+            originalRating === "" ? "" : String(Math.round(Number(originalRating)));
+        spoilerChk.checked = originalSpoiler;
+        overallTa.value = originalText;
+
+        // 취소
+        form.querySelector(".edit-cancel").addEventListener("click", () => {
+            form.remove();
+            bodyDiv.style.display = "";
+            closeAllMenus();
+        });
+
+        // 저장
+        form.querySelector(".edit-save").addEventListener("click", async () => {
+            const newOverall = overallTa.value.trim();
+            const newRating = ratingSel.value === "" ? null : Number(ratingSel.value);
+            const newSpoiler = spoilerChk.checked;
+
+            if (!newOverall) return alert("리뷰 내용은 비울 수 없습니다.");
+
+            const res = await fetch(`/api/me/reviews/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    overall: newOverall,
+                    rating: newRating,
+                    spoiler: newSpoiler,
+                }),
+            });
+
+            if (!res.ok) return alert("수정 실패");
+
+            // 화면 반영
+            bodyDiv.textContent = newOverall;
+            bodyDiv.style.display = "";
+            form.remove();
+
+            // 다음 편집을 위해 dataset 갱신
+            item.dataset.rating = newRating ?? "";
+            item.dataset.spoiler = newSpoiler ? "true" : "false";
+
+            // meta 표시 갱신(작성일은 기존 텍스트 유지)
+            if (metaDiv) {
+                const old = metaDiv.textContent || "";
+                const tail = old.includes("| 작성일:") ? old.split("| 작성일:")[1] : "";
+                metaDiv.textContent =
+                    `평점: ${newRating ?? "-"} | 스포일러: ${newSpoiler ? "O" : "X"}` +
+                    (tail ? ` | 작성일: ${tail.trim()}` : "");
+            }
+
+            closeAllMenus();
+        });
+
+        closeAllMenus();
+        return;
+    }
+
+    // === 코멘트 삭제 ===
     if (action === "delete-comment") {
-        if (!confirm("코멘트를 삭제할까요?")) return;
+        if (!confirm("코멘트를 삭제하시겠습니까?")) return;
 
         const res = await fetch(`/api/me/page-comments/${id}`, { method: "DELETE" });
         if (!res.ok) return alert("삭제 실패");
 
-        alert("삭제 완료");
+        actionBtn.closest(".modal-review-item")?.remove();
         closeAllMenus();
-        location.reload();
+        return;
     }
 
+    // === 코멘트 수정 ===
     if (action === "edit-comment") {
-        const newText = prompt("코멘트 내용을 수정하시겠습니까?");
-        if (newText == null) return;
+        const text = prompt("코멘트를 수정하시겠습니까?");
+        if (text == null) return;
 
         const res = await fetch(`/api/me/page-comments/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ comment: newText }),
+            body: JSON.stringify({ comment: text }),
         });
         if (!res.ok) return alert("수정 실패");
 
-        alert("수정 완료");
-        closeAllMenus();
-        location.reload();
-    }
+        const item = actionBtn.closest(".modal-review-item");
+        const bodyDiv = item?.querySelector(".item-body");
+        if (bodyDiv) bodyDiv.textContent = text;
 
+        closeAllMenus();
+        return;
+    }
 });
 
+// 모달 닫기
 function closeModal() {
     document.getElementById("review-modal-backdrop")?.classList.remove("show");
+    closeAllMenus();
 }
 
+// 열린 모든 케밥 메뉴 닫기
 function closeAllMenus() {
-    document.querySelectorAll(".menu-panel.show")
-        .forEach(p => p.classList.remove("show"));
+    document
+        .querySelectorAll(".menu-panel.show")
+        .forEach((p) => p.classList.remove("show"));
 }
