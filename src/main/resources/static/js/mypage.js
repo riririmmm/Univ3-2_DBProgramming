@@ -80,8 +80,10 @@ async function loadMyBooks() {
     }
 }
 
-// 책 클릭 시 모달 열기
-// 해당 책에 대해 내가 쓴 리뷰 + 페이지 코멘트 조회
+/**
+ * 책 클릭 시 모달 열기
+ * - 해당 책에 대해 내가 쓴 리뷰 + 페이지 코멘트 조회
+ */
 async function openBookModal(isbn13, title) {
     const backdrop = document.getElementById("review-modal-backdrop");
     const titleEl = document.getElementById("modal-book-title");
@@ -122,7 +124,7 @@ async function openBookModal(isbn13, title) {
                         id: r.id,
 
                         // 인라인 편집에 필요
-                        rating: r.rating ?? null,
+                        rating: r.rating ?? null,     // Double
                         spoiler: !!r.spoiler,
                     })
                 );
@@ -248,24 +250,26 @@ document.addEventListener("click", async (e) => {
         const bodyDiv = item.querySelector(".item-body");
 
         const originalText = bodyDiv?.textContent ?? "";
-        const originalRating = item.dataset.rating === "" ? "" : item.dataset.rating;
+        const originalRating = item.dataset.rating === "" ? "" : item.dataset.rating; // "4.2"
         const originalSpoiler = item.dataset.spoiler === "true";
 
-        // 인라인 편집 폼 생성
+        // 인라인 편집 폼 생성 (평점: 실수, 소수점 1자리 입력)
         const form = document.createElement("div");
         form.className = "edit-form";
         form.innerHTML = `
           <div style="display:flex; gap:12px; align-items:center; margin:8px 0;">
             <label style="display:flex; gap:6px; align-items:center;">
               <span>별점</span>
-              <select class="edit-rating">
-                <option value="">-</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-              </select>
+              <input
+                type="number"
+                class="edit-rating"
+                min="0"
+                max="5"
+                step="0.1"
+                inputmode="decimal"
+                placeholder="예: 4.2"
+                style="width:84px;"
+              />
             </label>
 
             <label style="display:flex; gap:6px; align-items:center;">
@@ -287,12 +291,11 @@ document.addEventListener("click", async (e) => {
         item.appendChild(form);
 
         // 초기값 세팅
-        const ratingSel = form.querySelector(".edit-rating");
+        const ratingInput = form.querySelector(".edit-rating");
         const spoilerChk = form.querySelector(".edit-spoiler");
         const overallTa = form.querySelector(".edit-overall");
 
-        ratingSel.value =
-            originalRating === "" ? "" : String(Math.round(Number(originalRating)));
+        ratingInput.value = originalRating === "" ? "" : String(Number(originalRating).toFixed(1));
         spoilerChk.checked = originalSpoiler;
         overallTa.value = originalText;
 
@@ -306,10 +309,19 @@ document.addEventListener("click", async (e) => {
         // 저장
         form.querySelector(".edit-save").addEventListener("click", async () => {
             const newOverall = overallTa.value.trim();
-            const newRating = ratingSel.value === "" ? null : Number(ratingSel.value);
+            const rawRating = ratingInput.value.trim();
             const newSpoiler = spoilerChk.checked;
 
             if (!newOverall) return alert("리뷰 내용은 비울 수 없습니다.");
+
+            // rating: 비우면 null, 입력하면 0.0~5.0 소수 1자리로 강제
+            let newRating = null;
+            if (rawRating !== "") {
+                const v = Number(rawRating);
+                if (Number.isNaN(v)) return alert("별점은 숫자로 입력하세요.");
+                if (v < 0 || v > 5) return alert("별점은 0.0 ~ 5.0 사이로 입력하세요.");
+                newRating = Math.round(v * 10) / 10; // 소수 1자리로 정규화
+            }
 
             const res = await fetch(`/api/me/reviews/${id}`, {
                 method: "PATCH",
@@ -328,11 +340,11 @@ document.addEventListener("click", async (e) => {
             bodyDiv.style.display = "";
             form.remove();
 
-            // 다음 편집을 위해 dataset 갱신
+            // dataset 갱신
             item.dataset.rating = newRating ?? "";
             item.dataset.spoiler = newSpoiler ? "true" : "false";
 
-            // meta 표시 갱신(작성일은 기존 텍스트 유지)
+            // meta 표시 갱신(작성일 유지)
             if (metaDiv) {
                 const old = metaDiv.textContent || "";
                 const tail = old.includes("| 작성일:") ? old.split("| 작성일:")[1] : "";
@@ -362,19 +374,63 @@ document.addEventListener("click", async (e) => {
 
     // === 코멘트 수정 ===
     if (action === "edit-comment") {
-        const text = prompt("코멘트를 수정하시겠습니까?");
-        if (text == null) return;
-
-        const res = await fetch(`/api/me/page-comments/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ comment: text }),
-        });
-        if (!res.ok) return alert("수정 실패");
-
         const item = actionBtn.closest(".modal-review-item");
-        const bodyDiv = item?.querySelector(".item-body");
-        if (bodyDiv) bodyDiv.textContent = text;
+        if (!item) return;
+
+        // 이미 편집 중이면 중복 방지
+        if (item.querySelector(".edit-form")) {
+            closeAllMenus();
+            return;
+        }
+
+        const bodyDiv = item.querySelector(".item-body");
+        const originalText = bodyDiv?.textContent ?? "";
+
+        // 인라인 편집 폼 생성
+        const form = document.createElement("div");
+        form.className = "edit-form";
+        form.innerHTML = `
+            <textarea class="edit-comment" rows="3" style="width:100%; box-sizing:border-box;"></textarea>
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+              <button type="button" class="edit-cancel">취소</button>
+              <button type="button" class="edit-save">저장</button>
+            </div>
+        `;
+
+        // 기존 텍스트 숨기고 폼 붙이기
+        bodyDiv.style.display = "none";
+        item.appendChild(form);
+
+        // 초기값
+        const ta = form.querySelector(".edit-comment");
+        ta.value = originalText;
+
+        // 취소
+        form.querySelector(".edit-cancel").addEventListener("click", () => {
+            form.remove();
+            bodyDiv.style.display = "";
+            closeAllMenus();
+        });
+
+        // 저장
+        form.querySelector(".edit-save").addEventListener("click", async () => {
+            const newText = ta.value.trim();
+            if (!newText) return alert("코멘트 내용은 비울 수 없습니다.");
+
+            const res = await fetch(`/api/me/page-comments/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ comment: newText }),
+            });
+            if (!res.ok) return alert("수정 실패");
+
+            // 화면 반영
+            bodyDiv.textContent = newText;
+            bodyDiv.style.display = "";
+            form.remove();
+
+            closeAllMenus();
+        });
 
         closeAllMenus();
         return;
