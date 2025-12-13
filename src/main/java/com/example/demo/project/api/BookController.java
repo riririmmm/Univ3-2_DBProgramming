@@ -88,30 +88,33 @@ public class BookController {
     // 진행도 (BookProgress 엔티티 사용)
     @PutMapping("/api/books/{isbn13}/progress")
     public Map<String, Object> updateProgress(@PathVariable String isbn13,
-                                              @RequestBody ProgressReq req) {
+                                              @RequestBody ProgressReq req,
+                                              Authentication authentication) {
         if (req == null || req.getCurrentPage() == null || req.getCurrentPage() < 0) {
             throw new IllegalArgumentException("currentPage must be >= 0");
         }
 
-        BookProgress progress = new BookProgress(isbn13, req.getCurrentPage());
+        UserAccount me = getCurrentUser(authentication);
+
+        BookProgress progress = progressRepo.findByUserAndIsbn13(me, isbn13)
+                .orElseGet(() -> new BookProgress(me, isbn13, 0));
+
+        progress.setCurrentPage(req.getCurrentPage());
         progressRepo.save(progress);
 
-        Map<String, Object> res = new HashMap<>();
-        res.put("isbn13", isbn13);
-        res.put("currentPage", req.getCurrentPage());
-        return res;
+        return Map.of("isbn13", isbn13, "currentPage", progress.getCurrentPage());
     }
 
     @GetMapping("/api/books/{isbn13}/progress")
-    public Map<String, Object> getProgress(@PathVariable String isbn13) {
-        BookProgress progress = progressRepo.findById(isbn13).orElse(null);
-        int current = (progress != null && progress.getCurrentPage() != null)
-                ? progress.getCurrentPage() : 0;
+    public Map<String, Object> getProgress(@PathVariable String isbn13,
+                                           Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
 
-        Map<String, Object> res = new HashMap<>();
-        res.put("isbn13", isbn13);
-        res.put("currentPage", current);
-        return res;
+        int current = progressRepo.findByUserAndIsbn13(me, isbn13)
+                .map(BookProgress::getCurrentPage)
+                .orElse(0);
+
+        return Map.of("isbn13", isbn13, "currentPage", current);
     }
 
     // 페이지 코멘트 (PageComment 엔티티 사용)
@@ -151,7 +154,7 @@ public class BookController {
         // 1) 기본 범위: 진행도(currentPage)
         Integer effectiveUpto = upto;
         if (effectiveUpto == null) {
-            BookProgress progress = progressRepo.findById(isbn13).orElse(null);
+            BookProgress progress = progressRepo.findById(Long.valueOf(isbn13)).orElse(null);
             if (progress != null && progress.getCurrentPage() != null) {
                 effectiveUpto = progress.getCurrentPage();
             }
