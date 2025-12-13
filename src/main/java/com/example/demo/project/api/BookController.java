@@ -123,9 +123,10 @@ public class BookController {
     public void addPageComment(@PathVariable String isbn13,
                                @RequestBody NewPageComment body,
                                Authentication authentication) {
-        if (body == null || body.getPage() == null || body.getPage() < 1
+        // 0페이지 허용
+        if (body == null || body.getPage() == null || body.getPage() < 0
                 || body.getComment() == null || body.getComment().isBlank()) {
-            throw new IllegalArgumentException("page >= 1 and comment required");
+            throw new IllegalArgumentException("page >= 0 and comment required");
         }
 
         // 로그인 유저 가져오기
@@ -148,37 +149,40 @@ public class BookController {
      *  - ?upto=300 같은 쿼리 파라미터로 범위 지정 가능 (1 ~ upto)
      */
     @GetMapping("/api/books/{isbn13}/page-comments")
-    public List<Map<String, Object>> listPageComments(@PathVariable String isbn13,
-                                                      @RequestParam(name = "upto", required = false) Integer upto) {
+    public Map<String, Object> listPageComments(@PathVariable String isbn13,
+                                                @RequestParam(name = "upto", required = false) Integer upto,
+                                                Authentication authentication) {
 
-        // 1) 기본 범위: 진행도(currentPage)
+        UserAccount me = getCurrentUser(authentication);
+
+        // 1) 기본 범위: 로그인 유저 진행도(currentPage)
         Integer effectiveUpto = upto;
         if (effectiveUpto == null) {
-            BookProgress progress = progressRepo.findById(Long.valueOf(isbn13)).orElse(null);
-            if (progress != null && progress.getCurrentPage() != null) {
-                effectiveUpto = progress.getCurrentPage();
-            }
+            effectiveUpto = progressRepo.findByUserAndIsbn13(me, isbn13)
+                    .map(BookProgress::getCurrentPage)
+                    .orElse(0);
         }
 
-        // 2) 범위에 따라 쿼리
-        List<PageComment> list;
-        if (effectiveUpto != null) {
-            list = pageCommentRepo
-                    .findByIsbn13AndPageLessThanEqualOrderByPageAsc(isbn13, effectiveUpto);
-        } else {
-            list = pageCommentRepo
-                    .findByIsbn13OrderByPageAsc(isbn13);
-        }
+        // 2) 범위에 따라 조회 (0~effectiveUpto)
+        List<PageComment> list = pageCommentRepo
+                .findByIsbn13AndPageLessThanEqualOrderByPageAsc(isbn13, effectiveUpto);
 
-        // 3) 간단한 Map 리스트로 변환
+        // 3) Map으로 변환 (+닉네임)
         List<Map<String, Object>> out = new ArrayList<>();
         for (PageComment c : list) {
             Map<String, Object> m = new HashMap<>();
+            m.put("id", c.getId());
             m.put("page", c.getPage());
             m.put("comment", c.getComment());
+            m.put("authorNickname", c.getUser() != null ? c.getUser().getNickname() : null);
             out.add(m);
         }
-        return out;
+
+        // 4) 현재 필터링 범위도 같이 내려줌
+        return Map.of(
+                "upto", effectiveUpto,
+                "items", out
+        );
     }
 
     // ---------------------------------------------------

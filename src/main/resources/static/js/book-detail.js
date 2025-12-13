@@ -2,6 +2,7 @@ const isbn13 = document.getElementById('isbn13Hidden')?.value || "";
 let allComments = [];
 let currentWritePage = 1;
 
+// 상세/진행도
 async function loadDetail() {
     try {
         const res = await fetch(`/api/books/${isbn13}`);
@@ -47,6 +48,11 @@ async function saveProgress() {
             return;
         }
         await loadProgress();
+
+        // 진행도 저장 후: 모달 열려있으면(또는 다음 열 때) 기본 필터도 갱신되도록
+        if (!document.getElementById('commentModal').classList.contains('hidden')) {
+            await reloadModalComments();
+        }
     } catch (e) {
         console.error(e);
         alert('오류 발생');
@@ -169,7 +175,7 @@ async function loadReviews() {
 }
 
 async function saveReview() {
-    const text    = document.getElementById('reviewText').value.trim();
+    const text = document.getElementById('reviewText').value.trim();
     const spoiler = document.getElementById('reviewSpoiler').checked;
     const ratingStr = document.getElementById('reviewRating').value;
     const rating = parseFloat(ratingStr);
@@ -198,15 +204,15 @@ async function saveReview() {
         }
         document.getElementById('reviewText').value = '';
         document.getElementById('reviewSpoiler').checked = false;
-        document.getElementById('reviewRating').value = ''; // 평점 입력창도 초기화
-        await loadReviews();   // 저장 후 전체 목록 다시 로딩
+        document.getElementById('reviewRating').value = '';     // 평점 입력창도 초기화
+        await loadReviews();    // 저장 후 전체 목록 다시 로딩
     } catch (e) {
         console.error(e);
         alert('오류 발생');
     }
 }
 
-// ===== 모달용 공통 =====
+// 코멘트 모달
 function updateModalPageInfo() {
     const info = document.getElementById('modalPageInfo');
     info.textContent = `현재 작성 대상 페이지: p.${currentWritePage}`;
@@ -215,7 +221,7 @@ function updateModalPageInfo() {
 function renderModalComments() {
     const listEl = document.getElementById('modalCommentList');
     const fromEl = document.getElementById('filterFrom');
-    const toEl   = document.getElementById('filterTo');
+    const toEl = document.getElementById('filterTo');
     const sortEl = document.getElementById('sortOrder');
 
     listEl.innerHTML = '';
@@ -231,12 +237,12 @@ function renderModalComments() {
     let list = allComments.slice();
 
     const fromVal = Number(fromEl.value);
-    const toVal   = Number(toEl.value);
-    const hasFrom = !Number.isNaN(fromVal) && fromVal >= 1;
-    const hasTo   = !Number.isNaN(toVal)   && toVal   >= 1;
+    const toVal = Number(toEl.value);
+    const hasFrom = !Number.isNaN(fromVal) && fromVal >= 0;
+    const hasTo = !Number.isNaN(toVal) && toVal >= 0;
 
     if (hasFrom) list = list.filter(c => c.page >= fromVal);
-    if (hasTo)   list = list.filter(c => c.page <= toVal);
+    if (hasTo) list = list.filter(c => c.page <= toVal);
 
     if (sortEl.value === 'asc') {
         list.sort((a, b) => a.page - b.page);
@@ -269,23 +275,58 @@ function renderModalComments() {
     });
 }
 
-async function fetchAllComments() {
+/**
+ * 서버에서 코멘트를 가져올 때 upto를 서버에 넘김
+ * - upto가 null이면: 서버 기본값(진행도 currentPage까지)
+ * - upto가 숫자면: ?upto= 로 지정한 범위까지
+ * 응답은 { upto, items } 형태를 가정
+ */
+async function fetchAllComments(upto = null) {
     try {
-        const res = await fetch(`/api/books/${isbn13}/page-comments`);
+        const url = (upto === null)
+            ? `/api/books/${isbn13}/page-comments`
+            : `/api/books/${isbn13}/page-comments?upto=${encodeURIComponent(upto)}`;
+
+        const res = await fetch(url);
         if (!res.ok) {
+            console.error("page-comments fetch failed:", res.status, await res.text());
             allComments = [];
             return;
         }
-        const data = await res.json();
-        allComments = Array.isArray(data) ? data : [];
+
+        const data = await res.json(); // { upto, items }
+        allComments = Array.isArray(data.items) ? data.items : [];
+
+        const effectiveUpto = (data.upto ?? 0);
+
+        // 현재 필터링 페이지 표시
+        const infoEl = document.getElementById('currentFilterInfo');
+        if (infoEl) infoEl.textContent = `현재 표시: 0 ~ ${effectiveUpto} 페이지`;
+
+        // 기본 필터값은 "무조건" 0~effectiveUpto로 맞춰줌 (빈칸일 때만 X)
+        const fromEl = document.getElementById('filterFrom');
+        const toEl = document.getElementById('filterTo');
+        if (fromEl) fromEl.value = 0;
+        if (toEl) toEl.value = effectiveUpto;
+
     } catch (e) {
         console.error(e);
         allComments = [];
     }
 }
 
+/**
+ * 모달의 "현재 to 값"을 기준으로 서버에서 다시 가져와서 렌더
+ * - 적용 버튼 누르면 서버 재조회
+ * - 모달 열 때도 서버 재조회
+ */
 async function reloadModalComments() {
-    await fetchAllComments();
+    const toEl = document.getElementById('filterTo');
+    const toVal = Number(toEl?.value);
+
+    const upto = (!Number.isNaN(toVal) && toVal >= 0) ? toVal : null;
+
+    await fetchAllComments(upto);
     renderModalComments();
 }
 
@@ -294,19 +335,22 @@ function openCommentModal() {
     const quickPage = Number(document.getElementById('quickCommentPage').value);
     const currentPage = Number(document.getElementById('currentPage').textContent);
 
-    if (!Number.isNaN(quickPage) && quickPage >= 1) {
+    if (!Number.isNaN(quickPage) && quickPage >= 0) {
         currentWritePage = quickPage;
-    } else if (!Number.isNaN(currentPage) && currentPage >= 1) {
+    } else if (!Number.isNaN(currentPage) && currentPage >= 0) {
         currentWritePage = currentPage;
     } else {
-        currentWritePage = 1;
+        currentWritePage = 0;
     }
 
     document.getElementById('modalCommentPage').value = currentWritePage;
     updateModalPageInfo();
 
     document.getElementById('commentModal').classList.remove('hidden');
-    reloadModalComments();
+
+    // 모달 열면: 먼저 진행도/기본 범위로 가져오게 하려면 null로
+    // (서버가 진행도 기반 기본 필터를 적용하도록)
+    fetchAllComments(null).then(() => renderModalComments());
 }
 
 function closeCommentModal() {
@@ -315,13 +359,13 @@ function closeCommentModal() {
 
 async function addCommentFromModal() {
     const pageInput = document.getElementById('modalCommentPage');
-    const textEl    = document.getElementById('modalCommentText');
+    const textEl = document.getElementById('modalCommentText');
 
     const page = Number(pageInput.value);
     const text = textEl.value.trim();
 
-    if (Number.isNaN(page) || page < 1 || !text) {
-        alert('페이지(>=1)와 코멘트를 입력하세요.');
+    if (Number.isNaN(page) || page < 0 || !text) {
+        alert('페이지(>=0)와 코멘트를 입력하세요.');
         return;
     }
 
@@ -339,6 +383,8 @@ async function addCommentFromModal() {
         currentWritePage = page;
         document.getElementById('modalCommentPage').value = currentWritePage;
         updateModalPageInfo();
+
+        // 저장 후에는 현재 필터(to) 기준으로 다시 불러오기
         await reloadModalComments();
     } catch (e) {
         console.error(e);
@@ -349,13 +395,13 @@ async function addCommentFromModal() {
 // ===== 빠른 입력용 =====
 async function addQuickComment() {
     const pageInput = document.getElementById('quickCommentPage');
-    const textEl    = document.getElementById('quickCommentText');
+    const textEl = document.getElementById('quickCommentText');
 
     const page = Number(pageInput.value);
     const text = textEl.value.trim();
 
-    if (Number.isNaN(page) || page < 1 || !text) {
-        alert('페이지(>=1)와 코멘트를 입력하세요.');
+    if (Number.isNaN(page) || page < 0 || !text) {
+        alert('페이지(>=0)와 코멘트를 입력하세요.');
         return;
     }
 
@@ -371,7 +417,7 @@ async function addQuickComment() {
         }
         textEl.value = '';
         pageInput.value = '';
-        // 모달이 열려 있다면 리스트 갱신
+
         if (!document.getElementById('commentModal').classList.contains('hidden')) {
             await reloadModalComments();
         }
@@ -381,7 +427,7 @@ async function addQuickComment() {
     }
 }
 
-// ===== 이벤트 바인딩 =====
+// 이벤트 바인딩
 document.getElementById('progressBtn').addEventListener('click', saveProgress);
 
 document.getElementById('openCommentModalBtn').addEventListener('click', openCommentModal);
@@ -391,17 +437,19 @@ document.querySelector('#commentModal .modal-backdrop')
 
 document.getElementById('modalAddCommentBtn').addEventListener('click', addCommentFromModal);
 
-document.getElementById('applyFilterBtn').addEventListener('click', renderModalComments);
-document.getElementById('resetFilterBtn').addEventListener('click', () => {
-    document.getElementById('filterFrom').value = '';
-    document.getElementById('filterTo').value   = '';
-    document.getElementById('sortOrder').value  = 'asc';
+// 적용 버튼: 이제 서버 재조회까지 해야 함
+document.getElementById('applyFilterBtn').addEventListener('click', reloadModalComments);
+
+// 초기화: 0~(현재 진행도 기반)로 다시 가져와서 렌더
+document.getElementById('resetFilterBtn').addEventListener('click', async () => {
+    document.getElementById('sortOrder').value = 'asc';
+    await fetchAllComments(null); // 서버 기본값(진행도) 사용
     renderModalComments();
 });
 
 document.getElementById('modalCommentPage').addEventListener('input', (e) => {
     const v = Number(e.target.value);
-    if (!Number.isNaN(v) && v >= 1) {
+    if (!Number.isNaN(v) && v >= 0) {
         currentWritePage = v;
         updateModalPageInfo();
     }
