@@ -1,9 +1,6 @@
 package com.example.demo.project.api;
 
-import com.example.demo.project.api.dto.BookView;
-import com.example.demo.project.api.dto.NewPageComment;
-import com.example.demo.project.api.dto.NewReview;
-import com.example.demo.project.api.dto.ProgressReq;
+import com.example.demo.project.api.dto.*;
 import com.example.demo.project.domain.*;
 import com.example.demo.project.infra.aladin.AladinClient;
 import com.example.demo.project.infra.aladin.AladinItem;
@@ -193,6 +190,7 @@ public class BookController {
             m.put("page", c.getPage());
             m.put("comment", c.getComment());
             m.put("authorNickname", c.getUser() != null ? c.getUser().getNickname() : null);
+            m.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
             out.add(m);
         }
 
@@ -237,38 +235,13 @@ public class BookController {
         reviewRepo.save(review);
     }
 
-    /**
-     * 리뷰 조회
-     *  - latest 텍스트 (스포일러면 가리기)
-     *  - 평균 별점(avgRating) + 개수(count) 같이 반환
-     */
+    // 리뷰 조회
     @GetMapping("/api/books/{isbn13}/review")
-    public Map<String, Object> getReview(@PathVariable String isbn13,
-                                         @RequestParam(defaultValue = "false") boolean reveal) {
-
+    public List<ReviewResponse> getReviews(@PathVariable String isbn13) {
         List<Review> reviews = reviewRepo.findByIsbn13(isbn13);
-        Map<String, Object> res = new HashMap<>();
-
-        if (reviews.isEmpty()) {
-            // 아무 리뷰도 없으면 빈 맵 (프론트에서 "등록된 리뷰 없음" 처리)
-            return res;
-        }
-
-        // 평균 별점 (rating IS NOT NULL 인 것만)
-        Double avg = reviewRepo.findAvgRatingByIsbn13(isbn13);
-
-        reviews.sort(Comparator.comparingLong(Review::getId));
-        Review latest = reviews.get(reviews.size() - 1);
-
-        boolean spoiler = Boolean.TRUE.equals(latest.getSpoiler());
-        String text = (spoiler && !reveal) ? "(스포일러로 가려짐)" : latest.getOverall();
-
-        res.put("overall", text);
-        res.put("spoiler", spoiler);
-        res.put("avgRating", avg);           // 프론트에서 평균 별점 표시용
-        res.put("count", reviews.size());    // 총 리뷰 개수
-
-        return res;
+        return reviews.stream()
+                .map(ReviewResponse::from)
+                .toList();
     }
 
     // 유틸

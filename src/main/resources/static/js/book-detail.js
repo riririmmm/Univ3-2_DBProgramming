@@ -129,6 +129,8 @@ async function loadReviews() {
         }
         const data = await res.json();
 
+        console.log("review sample:", data?.[0] ?? data);
+
         const reviews = Array.isArray(data)
             ? data
             : (data ? [data] : []);
@@ -184,11 +186,16 @@ async function loadReviews() {
                     ? ` • ★ ${r.rating}`
                     : '';
 
+            const ratingText =
+                (typeof r.rating === 'number') ? `★ ${r.rating}` : '';
+
+            const nick = r['authorNickname'] ? r['authorNickname'] : '익명';
+
             meta.textContent =
-                `${idx === 0 ? '최근 리뷰' : `리뷰 #${reviews.length - idx}`} ` +
-                (dateStr ? `• ${dateStr}` : '') +
-                ratingPart +
-                (r.spoiler ? ' • 스포일러 포함' : '');
+                `${nick}` +
+                (ratingText ? ` | ${ratingText}` : '') +
+                (dateStr ? ` | ${dateStr}` : '') +
+                (r.spoiler ? ' | 스포일러' : '');
 
             const body = document.createElement('div');
             body.className = 'review-body';
@@ -322,7 +329,13 @@ function renderModalComments() {
 
         const meta = document.createElement('div');
         meta.className = 'comment-meta';
-        meta.textContent = `p.${c.page}`;
+        const nick = c['authorNickname'] ? c['authorNickname'] : '익명';
+
+        const dateStr = c.createdAt
+            ? new Date(String(c.createdAt)).toLocaleString('ko-KR')
+            : '';
+
+        meta.textContent = `${nick} | p.${c.page}` + (dateStr ? ` | ${dateStr}` : '');
 
         const body = document.createElement('div');
         body.textContent = c.comment;
