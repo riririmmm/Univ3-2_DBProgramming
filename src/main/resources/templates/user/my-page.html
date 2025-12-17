@@ -3,24 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <title>마이페이지</title>
-
-    <!-- CSS 분리 -->
     <link rel="stylesheet" th:href="@{/css/mypage.css}">
 </head>
 
 <body>
-<a th:href="@{/}">메인 화면으로 돌아가기</a>
 
-<h1 th:text="'마이페이지 - ' + ${nickname}">마이페이지</h1>
+<!-- 상단바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="back-link" th:href="@{/}">
+            <span class="arrow">←</span>
+        </a>
 
-<section>
-    <h2>📚 내가 리뷰 쓴 책들</h2>
-    <ul id="my-books">
-        <li>불러오는 중...</li>
-    </ul>
-</section>
+        <div class="user-area">
+            <span class="nickname" th:text="${nickname}">닉네임</span>
+            <span class="sep">|</span>
+            <a class="logout-link" th:href="@{/logout}">로그아웃</a>
+        </div>
+    </div>
+</header>
 
-<!-- 모달: 책 클릭 시 내 리뷰 + 코멘트 표시 -->
+<div class="page">
+    <h1 th:text="'마이페이지 - ' + ${nickname}">마이페이지</h1>
+
+    <section>
+        <h2>📚 내가 저장한 책들</h2>
+        <ul id="my-books">
+            <li>불러오는 중...</li>
+        </ul>
+    </section>
+</div>
+
+<!-- 모달 -->
 <div id="review-modal-backdrop" class="modal-backdrop">
     <div class="modal">
         <div class="modal-header">
@@ -40,6 +54,5 @@
 
 <!-- JS 분리 -->
 <script th:src="@{/js/mypage.js}" defer></script>
-
 </body>
 </html>
