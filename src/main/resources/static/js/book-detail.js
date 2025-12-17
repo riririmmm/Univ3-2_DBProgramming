@@ -181,26 +181,15 @@ async function loadReviews() {
             return tb - ta;
         });
 
-        reviews.forEach((r, idx) => {
+        reviews.forEach((r) => {
             const item = document.createElement('div');
             item.className = 'review-item';
 
             const meta = document.createElement('div');
             meta.className = 'review-meta';
 
-            const dateStr = r.createdAt
-                ? new Date(r.createdAt).toLocaleString('ko-KR')
-                : '';
-
-            // 각 리뷰의 별점 표시용 텍스트
-            const ratingPart =
-                (typeof r.rating === 'number')
-                    ? ` • ★ ${r.rating}`
-                    : '';
-
-            const ratingText =
-                (typeof r.rating === 'number') ? `★ ${r.rating}` : '';
-
+            const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleString('ko-KR') : '';
+            const ratingText = (typeof r.rating === 'number') ? `★ ${r.rating}` : '';
             const nick = r['authorNickname'] ? r['authorNickname'] : '익명';
 
             meta.textContent =
@@ -211,34 +200,28 @@ async function loadReviews() {
 
             const body = document.createElement('div');
             body.className = 'review-body';
-
-            if (r.spoiler) {
-                // 기본은 내용 숨기고 안내 문구 + 버튼
-                const placeholder = document.createElement('div');
-                placeholder.textContent = '스포일러가 포함된 리뷰입니다. "보기" 버튼을 눌러 내용을 확인하세요.';
-
-                const real = document.createElement('div');
-                real.textContent = r.overall;
-                real.style.display = 'none';
-
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.textContent = '스포일러 보기';
-                btn.addEventListener('click', () => {
-                    const isHidden = real.style.display === 'none';
-                    real.style.display = isHidden ? 'block' : 'none';
-                    btn.textContent = isHidden ? '스포일러 숨기기' : '스포일러 보기';
-                });
-
-                body.appendChild(placeholder);
-                body.appendChild(real);
-                body.appendChild(btn);
-            } else {
-                body.textContent = r.overall;
-            }
+            body.textContent = r.overall;
 
             item.appendChild(meta);
             item.appendChild(body);
+
+            // 스포일러면 블러 + 버튼
+            if (r.spoiler) {
+                body.classList.add('spoiler-masked');
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'spoiler-toggle';
+                btn.textContent = '보기';
+
+                btn.addEventListener('click', () => {
+                    const masked = body.classList.toggle('spoiler-masked');
+                    btn.textContent = masked ? '보기' : '숨기기';
+                });
+
+                item.appendChild(btn);
+            }
+
             container.appendChild(item);
         });
     } catch (e) {

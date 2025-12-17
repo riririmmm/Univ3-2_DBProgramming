@@ -1,0 +1,348 @@
+* { box-sizing: border-box; }
+
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    background: #fff;
+    color: #111;
+}
+
+/* ===== 상단바 ===== */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #eee;
+}
+
+.topbar-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #111;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.back-link:hover { background: #f7f7f7; }
+.back-link .arrow { font-size: 18px; line-height: 1; }
+
+.user-area {
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.user-area a {
+    color: #111;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.user-area a:hover { background: #f7f7f7; }
+.user-area .nickname { font-weight: 600; }
+.user-area .sep { color: #bbb; }
+
+/* ===== 본문 ===== */
+.page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 26px 18px 48px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 240px 1fr; /* 표지 줄임 */
+    gap: 18px;
+    align-items: start;
+}
+
+.cover img {
+    width: 100%;
+    max-height: 340px;      /* 표지 너무 커지는 거 방지 */
+    object-fit: contain;    /* 표지 전체 보이게 (원하면 cover로 바꿔) */
+    border-radius: 10px;
+    background: #f3f3f3;
+}
+
+.info h1 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    line-height: 1.25;
+}
+
+.meta, .pages {
+    color: #666;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.desc {
+    margin-top: 10px;
+    margin-bottom: 16px;
+    white-space: pre-line;
+    line-height: 1.55;
+    font-size: 14px;
+    color: #222;
+}
+
+section { margin-top: 26px; }
+
+section h2 {
+    font-size: 16px;
+    margin: 0 0 10px;
+}
+
+.field-row {
+    margin-top: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+input[type="number"], textarea, select {
+    width: 100%;
+    padding: 10px 10px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+textarea{ resize: vertical; }
+
+/* 버튼 줄바꿈 방지(저/장 방지) */
+.field-row > input,
+.field-row > textarea,
+.field-row > select{
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.field-row > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-width: 72px;
+    padding: 10px 14px;
+}
+
+button {
+    border: 1px solid #eee;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+button:hover {
+    background: #fafafa;
+}
+
+/* 진행도 표시 */
+.progress-line {
+    font-size: 14px;
+    color: #222;
+}
+#progressPercent {
+    color: #666; margin-left: 6px;
+}
+
+/* ===== 리뷰 리스트 ===== */
+.review-item {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+.review-meta {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 6px;
+}
+.review-body{ white-space: pre-line; line-height: 1.55; }
+
+/* ===== 페이지 코멘트 모달 ===== */
+.modal.hidden{ display: none; }
+
+.modal{
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+}
+
+.modal-content {
+    position: relative;
+    max-width: 720px;
+    width: calc(100% - 24px);
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 18px 18px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+
+    /* 핵심: 화면 안에 고정 */
+    height: min(84vh, 760px);
+    display: flex;
+    flex-direction: column;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.close-btn {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+.close-btn:hover {
+    background: #f2f2f2;
+}
+
+/* 모달 body는 위/아래 2단 */
+.modal-body {
+    font-size: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 상단 2열 그리드 */
+.modal-top-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* 아래 리스트가 남은 공간 전부 먹기 */
+.modal-list-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 리스트 자체 스크롤 */
+.modal-list-area .comment-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 작은 화면에서는 1열로 */
+@media (max-width: 820px) {
+    .modal-top-grid{ grid-template-columns: 1fr; }
+}
+
+.panel {
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 10px;
+}
+
+.panel-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.mini {
+    width: 90px !important;
+}
+
+.comment-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    flex: 1 1 auto;
+    min-height: 260px;
+    overflow-y: auto;
+}
+
+.comment-list-empty {
+    padding: 10px;
+    color: #666;
+    font-size: 13px;
+}
+
+.comment-item {
+    border-bottom: 1px solid #eee;
+    padding: 10px 12px;
+    font-size: 13px;
+}
+.comment-item:last-child { border-bottom: none; }
+
+.comment-meta {
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 4px;
+}
+
+/* 반응형 */
+@media (max-width: 820px) {
+    .layout{ grid-template-columns: 1fr; }
+    .cover{ max-width: 420px; }
+    .modal-content{ margin: 40px 12px; }
+}
+
+/* ===== 스포일러 블러 ===== */
+.spoiler-masked {
+    filter: blur(6px);
+    user-select: none;
+    pointer-events: none;
+}
+
+.spoiler-toggle {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px solid #eee;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.spoiler-toggle:hover { background: #fafafa; }
