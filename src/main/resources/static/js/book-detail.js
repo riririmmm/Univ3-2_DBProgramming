@@ -349,8 +349,8 @@ async function fetchAllComments(upto = null) {
         // 기본 필터값은 "무조건" 0~effectiveUpto로 맞춰줌 (빈칸일 때만 X)
         const fromEl = document.getElementById('filterFrom');
         const toEl = document.getElementById('filterTo');
-        if (fromEl) fromEl.value = 0;
-        if (toEl) toEl.value = effectiveUpto;
+        if (fromEl && fromEl.value.trim() === '') fromEl.value = 0;
+        if (toEl && toEl.value.trim() === '') toEl.value = effectiveUpto;
 
     } catch (e) {
         console.error(e);
@@ -482,7 +482,7 @@ document.querySelector('#commentModal .modal-backdrop')
 
 document.getElementById('modalAddCommentBtn').addEventListener('click', addCommentFromModal);
 
-// 적용 버튼: 이제 서버 재조회까지 해야 함
+// 적용 버튼
 document.getElementById('applyFilterBtn').addEventListener('click', reloadModalComments);
 
 // 초기화: 0~(현재 진행도 기반)로 다시 가져와서 렌더

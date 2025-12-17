@@ -35,12 +35,16 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**",
                                 "/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/books/**").permitAll()       // 페이지(HTML) 상세보기 공개
-                        .requestMatchers(HttpMethod.GET, "/api/books/**").permitAll()   // API 조회(검색/상세 조회) 공개
 
-                        // API 쓰기(리뷰/코멘트/진행도 저장 등) 로그인 필요
+                        // 읽기(조회) API 전부 공개
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/books/**"          // 책 상세, 리뷰 목록, page-comments 조회
+                        ).permitAll()
+
+                        // 쓰기(저장/수정/삭제)만 로그인
                         .requestMatchers(HttpMethod.POST, "/api/**").authenticated()
-                        .requestMatchers(HttpMethod.PATCH, "/api/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/**").authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/**").authenticated()
 
                         .anyRequest().authenticated()

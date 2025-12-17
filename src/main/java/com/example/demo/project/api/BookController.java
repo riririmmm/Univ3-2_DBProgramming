@@ -108,6 +108,15 @@ public class BookController {
     @GetMapping("/api/books/{isbn13}/progress")
     public Map<String, Object> getProgress(@PathVariable String isbn13,
                                            Authentication authentication) {
+
+        boolean loggedIn = authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName());
+
+        if (!loggedIn) {
+            return Map.of("isbn13", isbn13, "currentPage", 0);
+        }
+
         UserAccount me = getCurrentUser(authentication);
 
         int current = progressRepo.findByUserAndIsbn13(me, isbn13)
@@ -153,21 +162,30 @@ public class BookController {
                                                 @RequestParam(name = "upto", required = false) Integer upto,
                                                 Authentication authentication) {
 
-        UserAccount me = getCurrentUser(authentication);
+        boolean loggedIn = authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName());
 
-        // 1) 기본 범위: 로그인 유저 진행도(currentPage)
+        // 1) effectiveUpto 결정
         Integer effectiveUpto = upto;
+
+        // upto가 없을 때만 "진행도"를 참고하고, 로그아웃이면 기본값 0 (필터 입력해서 upto 주면 그때부터 정상 동작)
         if (effectiveUpto == null) {
-            effectiveUpto = progressRepo.findByUserAndIsbn13(me, isbn13)
-                    .map(BookProgress::getCurrentPage)
-                    .orElse(0);
+            if (loggedIn) {
+                UserAccount me = getCurrentUser(authentication);
+                effectiveUpto = progressRepo.findByUserAndIsbn13(me, isbn13)
+                        .map(BookProgress::getCurrentPage)
+                        .orElse(0);
+            } else {
+                effectiveUpto = 0;
+            }
         }
 
-        // 2) 범위에 따라 조회 (0~effectiveUpto)
+        // 2) 조회 (0~effectiveUpto)
         List<PageComment> list = pageCommentRepo
                 .findByIsbn13AndPageLessThanEqualOrderByPageAsc(isbn13, effectiveUpto);
 
-        // 3) Map으로 변환 (+닉네임)
+        // 3) Map 변환
         List<Map<String, Object>> out = new ArrayList<>();
         for (PageComment c : list) {
             Map<String, Object> m = new HashMap<>();
