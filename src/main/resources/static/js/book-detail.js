@@ -1,6 +1,7 @@
 const isbn13 = document.getElementById('isbn13Hidden')?.value || "";
 let allComments = [];
 let currentWritePage = 1;
+let bookPageCount = null;
 
 async function fetchWithLoginConfirm(url, options = {}) {
     let res;
@@ -63,6 +64,7 @@ async function loadDetail() {
         const res = await fetch(`/api/books/${isbn13}`);
         if (!res.ok) return;
         const b = await res.json();
+        bookPageCount = Number(b.pageCount ?? 0);
         document.getElementById('title').textContent = b.title;
         document.getElementById('meta').textContent =
             (b.authors && b.authors.length ? b.authors.join(', ') : '') +
@@ -82,7 +84,17 @@ async function loadProgress() {
         const res = await fetch(`/api/books/${isbn13}/progress`);
         if (!res.ok) return;
         const data = await res.json();
-        document.getElementById('currentPage').textContent = data.currentPage ?? 0;
+        const current = data.currentPage ?? 0;
+        document.getElementById('currentPage').textContent = current;
+
+        // 퍼센트 계산
+        const percentEl = document.getElementById('progressPercent');
+        if (percentEl && bookPageCount && bookPageCount > 0) {
+            const pct = Math.min(100, Math.round((current / bookPageCount) * 100));
+            percentEl.textContent = ` (${pct}%)`;
+        } else if (percentEl) {
+            percentEl.textContent = '';
+        }
     } catch (e) {
         console.error(e);
     }
@@ -531,6 +543,8 @@ document.getElementById('modalCommentPage').addEventListener('input', (e) => {
 document.getElementById('quickCommentBtn').addEventListener('click', addQuickComment);
 
 // 초기 로딩
-loadDetail();
-loadProgress();
-loadReviews();
+(async () => {
+    await loadDetail();
+    await loadProgress();
+    loadReviews();
+})();
