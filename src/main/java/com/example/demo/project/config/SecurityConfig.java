@@ -5,12 +5,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -60,6 +59,7 @@ public class SecurityConfig {
 
                 .formLogin(form -> form
                         .loginPage("/login")
+//                        .successHandler(loginSuccessHandler())
                         .defaultSuccessUrl("/", false) // true로 하면 항상 / 로 가서 원래 페이지 복귀가 깨짐
                         .failureHandler(customAuthFailureHandler)
                         .permitAll()
@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth -> oauth
                         .loginPage("/login")    // 폼로그인과 동일 페이지 사용
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+//                        .successHandler(loginSuccessHandler())
                         .defaultSuccessUrl("/", false)
                 )
                 .logout(logout -> logout
@@ -76,4 +77,16 @@ public class SecurityConfig {
 
         return http.build();
     }
+//
+//    @Bean
+//    public AuthenticationSuccessHandler loginSuccessHandler() {
+//        return (request, response, authentication) -> {
+//            String next = request.getParameter("next");
+//            if (next != null && !next.isBlank() && next.startsWith("/") && !next.startsWith("//")) {
+//                response.sendRedirect(next);
+//                return;
+//            }
+//            response.sendRedirect("/");
+//        };
+//    }
 }

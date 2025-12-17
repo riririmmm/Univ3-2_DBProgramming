@@ -13,7 +13,7 @@ async function fetchWithLoginConfirm(url, options = {}) {
         // 네트워크 레벨 오류(예: too many redirects로 fetch 자체가 실패)
         const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
         if (ok) {
-            const next = encodeURIComponent(location.pathname + location.search);
+            const next = encodeURIComponent(buildNext());
             location.href = `/login?next=${next}`;
         }
         return null;
@@ -23,7 +23,7 @@ async function fetchWithLoginConfirm(url, options = {}) {
     if (res.status === 401) {
         const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
         if (ok) {
-            const next = encodeURIComponent(location.pathname + location.search);
+            const next = encodeURIComponent(buildNext());
             location.href = `/login?next=${next}`;
         }
         return null;
@@ -33,13 +33,28 @@ async function fetchWithLoginConfirm(url, options = {}) {
     if ((res.status >= 300 && res.status < 400) || res.type === "opaqueredirect") {
         const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
         if (ok) {
-            const next = encodeURIComponent(location.pathname + location.search);
+            const next = encodeURIComponent(buildNext());
             location.href = `/login?next=${next}`;
         }
         return null;
     }
 
     return res;
+}
+
+function buildNext() {
+    const path = location.pathname;
+
+    // 정상적인 페이지에서만 next 허용
+    if (!path.startsWith("/books")) {
+        return "/";   // 기본 복귀
+    }
+
+    const params = new URLSearchParams(location.search);
+    params.delete("continue"); // continue 제거
+
+    const qs = params.toString();
+    return path + (qs ? `?${qs}` : "");
 }
 
 // 상세/진행도
