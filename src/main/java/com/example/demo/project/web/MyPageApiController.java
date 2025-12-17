@@ -8,7 +8,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -158,15 +160,16 @@ public class MyPageApiController {
 
     // 8) 진행도 목록
     @GetMapping("/progress")
-    public List<MyBookResponse> getMyProgressBooks(Authentication authentication) {
+    public List<Map<String, Object>> getMyProgressBooks(Authentication authentication) {
         UserAccount me = getCurrentUser(authentication);
 
-        Set<String> isbnSet = bookProgressRepository.findByUser(me).stream()
-                .map(BookProgress::getIsbn13)
-                .collect(Collectors.toSet());
-
-        return isbnSet.stream()
-                .map(MyBookResponse::new)
+        return bookProgressRepository.findByUser(me).stream()
+                .map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("isbn13", p.getIsbn13());
+                    m.put("currentPage", p.getCurrentPage());
+                    return m;
+                })
                 .toList();
     }
 

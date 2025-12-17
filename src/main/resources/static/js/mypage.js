@@ -35,11 +35,22 @@ async function loadMyBooks() {
     const commentBooks = commentRes.ok ? await commentRes.json() : [];
     const progressBooks = progressRes.ok ? await progressRes.json() : [];
 
-    // isbn13 기준 중복 제거
+    // isbn13 기준 중복 제거 + progress(currentPage) 보관
     const map = new Map();
-    [...reviewBooks, ...commentBooks, ...progressBooks].forEach((b) => {
-        if (b && b.isbn13) map.set(b.isbn13, { isbn13: b.isbn13 });
+
+    // 리뷰/코멘트 쪽은 isbn13만 있으면 됨
+    [...reviewBooks, ...commentBooks].forEach((b) => {
+        if (b?.isbn13 && !map.has(b.isbn13)) map.set(b.isbn13, {isbn13: b.isbn13});
     });
+
+    // progress는 currentPage까지 저장
+    progressBooks.forEach((p) => {
+        if (!p?.isbn13) return;
+        const prev = map.get(p.isbn13) || {isbn13: p.isbn13};
+        prev.currentPage = p.currentPage ?? 0;
+        map.set(p.isbn13, prev);
+    });
+
     const books = [...map.values()];
 
     if (books.length === 0) {
@@ -53,7 +64,7 @@ async function loadMyBooks() {
         li.className = "book-card";
 
         try {
-            // 책 상세 정보 조회 (제목 / 표지)
+            // 책 상세 정보 조회 (제목 / 표지 / pageCount)
             const detailRes = await fetch(`/api/books/${b.isbn13}`);
             if (!detailRes.ok) continue;
             const book = await detailRes.json();
@@ -69,6 +80,24 @@ async function loadMyBooks() {
 
             li.appendChild(img);
             li.appendChild(titleDiv);
+
+            // 진행도 표시
+            if (b.currentPage != null) {
+                const progressDiv = document.createElement("div");
+                progressDiv.className = "book-progress";
+
+                const pageCount = book.pageCount; // detail API에서 내려오는 값 (BookView.pageCount)
+                const current = b.currentPage;
+
+                if (pageCount) {
+                    const pct = Math.max(0, Math.min(100, Math.round((current / pageCount) * 100)));
+                    progressDiv.textContent = `진행도 ${pct}% (${current}/${pageCount}쪽)`;
+                } else {
+                    progressDiv.textContent = `현재 ${current}쪽`;
+                }
+
+                li.appendChild(progressDiv);
+            }
 
             // 카드 클릭 → 모달 열기
             li.addEventListener("click", () =>
@@ -162,7 +191,7 @@ async function openBookModal(isbn13, title) {
 
 // 공통 아이템(리뷰/코멘트) DOM 생성
 // 리뷰는 rating/spoiler를 dataset에 저장해 인라인 편집에 사용
-function createItem({ meta, body, editAction, deleteAction, id, rating, spoiler }) {
+function createItem({meta, body, editAction, deleteAction, id, rating, spoiler}) {
     const wrapper = document.createElement("div");
     wrapper.className = "modal-review-item";
 
@@ -222,14 +251,14 @@ document.addEventListener("click", async (e) => {
     const actionBtn = e.target.closest(".menu-item");
     if (!actionBtn) return;
 
-    const { action, id } = actionBtn.dataset;
+    const {action, id} = actionBtn.dataset;
     if (!action || !id) return;
 
     // === 리뷰 삭제 ===
     if (action === "delete-review") {
         if (!confirm("리뷰를 삭제하시겠습니까?")) return;
 
-        const res = await fetch(`/api/me/reviews/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/me/reviews/${id}`, {method: "DELETE"});
         if (!res.ok) return alert("삭제 실패");
 
         actionBtn.closest(".modal-review-item")?.remove();
@@ -327,7 +356,7 @@ document.addEventListener("click", async (e) => {
 
             const res = await fetch(`/api/me/reviews/${id}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
                     overall: newOverall,
                     rating: newRating,
@@ -366,7 +395,7 @@ document.addEventListener("click", async (e) => {
     if (action === "delete-comment") {
         if (!confirm("코멘트를 삭제하시겠습니까?")) return;
 
-        const res = await fetch(`/api/me/page-comments/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/me/page-comments/${id}`, {method: "DELETE"});
         if (!res.ok) return alert("삭제 실패");
 
         actionBtn.closest(".modal-review-item")?.remove();
@@ -421,8 +450,8 @@ document.addEventListener("click", async (e) => {
 
             const res = await fetch(`/api/me/page-comments/${id}`, {
                 method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ comment: newText }),
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({comment: newText}),
             });
             if (!res.ok) return alert("수정 실패");
 
