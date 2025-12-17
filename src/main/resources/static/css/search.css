@@ -1,0 +1,181 @@
+* { box-sizing: border-box; }
+
+body{
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    background: #fff;
+    color: #111;
+}
+
+/* ===== 상단바(공통 톤) ===== */
+.topbar{
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #eee;
+}
+
+.topbar-inner{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.brand{
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    color: #111;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.brand:hover{ background:#f7f7f7; }
+
+.user-area{
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.user-area a{
+    color:#111;
+    text-decoration:none;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.user-area a:hover{ background:#f7f7f7; }
+.user-area .nickname{ font-weight: 600; }
+.user-area .sep{ color:#bbb; }
+
+/* ===== 본문 ===== */
+.page{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 26px 18px 48px;
+}
+
+h1{
+    font-size: 22px;
+    margin: 0 0 14px;
+}
+
+/* ===== 검색폼 ===== */
+.search-box{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 14px 0 18px;
+}
+
+.search-input{
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.search-btn{
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    border: 1px solid #eee;
+    background: #fff;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+}
+.search-btn:hover{ background:#fafafa; }
+
+/* ===== 결과 ===== */
+#results{
+    margin-top: 10px;
+}
+
+/* 리스트 컨테이너 */
+.results-list{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 한 줄 아이템 */
+.book-card {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 14px;
+    background: #fff;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.book-card:hover {
+    background: #fafafa;
+}
+
+/* 이미지 작게 */
+.book-card img {
+    width: 64px;
+    height: 92px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #f3f3f3;
+    flex-shrink: 0;
+}
+
+/* 정보 영역 */
+.book-info{
+    flex: 1;
+    min-width: 0;
+}
+
+.book-title{
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.book-meta{
+    font-size: 12px;
+    color: #777;
+    margin-bottom: 6px;
+}
+
+.book-desc{
+    font-size: 13px;
+    color: #333;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.book-link{
+    margin-top: 6px;
+}
+
+.book-link a{
+    font-size: 13px;
+    color: #111;
+    text-decoration: none;
+}
+
+.book-link a:hover{
+    background: #fff;
+}
+
+.helper{
+    font-size: 13px;
+    color: #666;
+    padding: 10px 0;
+}

@@ -3,28 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <title>책 검색</title>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; }
-        .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
-        .book-card { border: 1px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 6px; display: flex; gap: 12px; }
-        .book-card img { width: 80px; height: auto; object-fit: cover; }
-        .book-info { flex: 1; }
-        .book-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 4px; }
-        .book-meta { font-size: 0.9rem; color: #555; margin-bottom: 4px; }
-        .book-desc { font-size: 0.9rem; color: #333; }
-        .book-link { margin-top: 4px; font-size: 0.9rem; }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/search.css}">
 </head>
 <body>
 
-<!-- 헤더 -->
-<div th:replace="layout/header :: siteHeader"></div>
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" th:href="@{/}"></a>
 
-<!-- 검색 박스 -->
-<div th:replace="search/search-form :: searchForm"></div>
+        <!-- 로그인 상태 -->
+        <div class="user-area" th:if="${nickname != null}">
+            <span class="nickname" th:text="'(' + ${nickname} + ')'">(닉네임)</span>
+            <span class="sep">|</span>
+            <a th:href="@{/logout}">로그아웃</a>
+        </div>
 
-<!-- 검색 결과 영역 -->
-<div th:replace="search/search-result :: searchResult"></div>
+        <!-- 비로그인 상태 -->
+        <div class="user-area" th:if="${nickname == null}">
+            <a th:href="@{/login}">로그인</a>
+            <span class="sep">|</span>
+            <a th:href="@{/signup}">회원가입</a>
+        </div>
+    </div>
+</header>
+
+<div class="page">
+    <h1>책 검색</h1>
+
+    <!-- 검색 박스 -->
+    <div th:replace="search/search-form :: searchForm"></div>
+
+    <!-- 검색 결과 영역 -->
+    <div th:replace="search/search-result :: searchResult"></div>
+</div>
 
 <script>
     const $q = document.getElementById('q');
@@ -33,68 +44,77 @@
 
     function renderResults(list) {
         $results.innerHTML = '';
+
         if (!list || list.length === 0) {
-            $results.textContent = '검색 결과가 없습니다.';
+            const p = document.createElement('div');
+            p.className = 'helper';
+            p.textContent = '검색 결과가 없습니다.';
+            $results.appendChild(p);
             return;
         }
+
+        const book_list = document.createElement('div');
+        book_list.className = 'results-list';
+
         list.forEach(b => {
             const div = document.createElement('div');
             div.className = 'book-card';
 
+            // ✅ 카드 전체 클릭 → 상세 페이지 이동
+            div.addEventListener('click', () => {
+                location.href = '/books/' + b.isbn13;
+            });
+
             const img = document.createElement('img');
             img.src = b.coverUrl || '';
-            img.alt = b.title;
+            img.alt = b.title || '';
 
             const info = document.createElement('div');
             info.className = 'book-info';
 
             const title = document.createElement('div');
             title.className = 'book-title';
-            title.textContent = b.title;
+            title.textContent = b.title || '(제목 없음)';
 
             const meta = document.createElement('div');
             meta.className = 'book-meta';
-            meta.textContent = (b.authors && b.authors.length > 0 ? b.authors.join(', ') : '')
-                + ' | ' + (b.publisher || '');
+            meta.textContent =
+                (b.authors && b.authors.length > 0 ? b.authors.join(', ') : '')
+                + (b.publisher ? ` | ${b.publisher}` : '');
 
             const desc = document.createElement('div');
             desc.className = 'book-desc';
             desc.textContent = b.description || '';
 
-            const link = document.createElement('div');
-            link.className = 'book-link';
-            const a = document.createElement('a');
-            a.href = '/books/' + b.isbn13;
-            a.textContent = '상세 보기';
-            link.appendChild(a);
-
             info.appendChild(title);
             info.appendChild(meta);
             info.appendChild(desc);
-            info.appendChild(link);
 
             div.appendChild(img);
             div.appendChild(info);
-            $results.appendChild(div);
+            book_list.appendChild(div);
         });
+
+        $results.appendChild(book_list);
     }
 
     async function doSearch() {
         const q = $q.value.trim();
         if (!q) return;
-        $results.textContent = '검색 중...';
+
+        $results.innerHTML = '<div class="helper">검색 중...</div>';
 
         try {
             const res = await fetch(`/api/books/search?q=${encodeURIComponent(q)}&size=10`);
             if (!res.ok) {
-                $results.textContent = '검색 실패: ' + res.status;
+                $results.innerHTML = `<div class="helper">검색 실패: ${res.status}</div>`;
                 return;
             }
             const data = await res.json();
             renderResults(data);
         } catch (e) {
             console.error(e);
-            $results.textContent = '오류 발생';
+            $results.innerHTML = '<div class="helper">오류 발생</div>';
         }
     }
 
