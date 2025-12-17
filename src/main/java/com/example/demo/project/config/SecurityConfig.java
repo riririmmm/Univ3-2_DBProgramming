@@ -11,7 +11,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @RequiredArgsConstructor
 @Configuration
@@ -32,8 +36,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/login", "/signup",
                                 "/css/**", "/js/**", "/images/**",
-                                "/oauth2/**").permitAll()
+                                "/oauth2/**",
+                                "/login/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/books/**").permitAll()       // 페이지(HTML) 상세보기 공개
+
+                        .requestMatchers("/error").permitAll()  // 에러 페이지
 
                         // 읽기(조회) API 전부 공개
                         .requestMatchers(HttpMethod.GET,
@@ -59,34 +66,60 @@ public class SecurityConfig {
 
                 .formLogin(form -> form
                         .loginPage("/login")
-//                        .successHandler(loginSuccessHandler())
+                        .successHandler(loginSuccessHandler())
                         .defaultSuccessUrl("/", false) // true로 하면 항상 / 로 가서 원래 페이지 복귀가 깨짐
                         .failureHandler(customAuthFailureHandler)
                         .permitAll()
                 )
                 .oauth2Login(oauth -> oauth
-                        .loginPage("/login")    // 폼로그인과 동일 페이지 사용
-                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-//                        .successHandler(loginSuccessHandler())
-                        .defaultSuccessUrl("/", false)
+                                .loginPage("/login")    // 폼로그인과 동일 페이지 사용
+                                .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .successHandler(loginSuccessHandler())
+                                .defaultSuccessUrl("/", false)
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/")
                 );
 
+        http.requestCache(c -> c.requestCache(requestCache()));
+
         return http.build();
     }
-//
-//    @Bean
-//    public AuthenticationSuccessHandler loginSuccessHandler() {
-//        return (request, response, authentication) -> {
-//            String next = request.getParameter("next");
-//            if (next != null && !next.isBlank() && next.startsWith("/") && !next.startsWith("//")) {
-//                response.sendRedirect(next);
-//                return;
-//            }
-//            response.sendRedirect("/");
-//        };
-//    }
+
+    @Bean
+    public AuthenticationSuccessHandler loginSuccessHandler() {
+        return (request, response, authentication) -> {
+            String next = request.getParameter("next");
+
+            // next 우선
+            if (next != null && !next.isBlank()
+                    && next.startsWith("/")
+                    && !next.startsWith("//")
+                    && !next.startsWith("/api/")) {
+                response.sendRedirect(next);
+                return;
+            }
+
+            // next 없으면 기본
+            response.sendRedirect("/");
+        };
+    }
+
+    @Bean
+    public RequestCache requestCache() {
+        HttpSessionRequestCache cache = new HttpSessionRequestCache();
+
+        RequestMatcher getOnly = req -> "GET".equalsIgnoreCase(req.getMethod());
+
+        RequestMatcher notApi = req -> {
+            String uri = req.getRequestURI();
+            String ctx = req.getContextPath();
+            String path = (ctx != null && !ctx.isBlank()) ? uri.substring(ctx.length()) : uri;
+            return !path.startsWith("/api/");
+        };
+
+        cache.setRequestMatcher(new AndRequestMatcher(getOnly, notApi));
+        return cache;
+    }
 }

@@ -122,7 +122,7 @@ async function loadReviews() {
     container.innerHTML = '';
 
     try {
-        const res = await fetch(`/api/books/${isbn13}/reviews`);
+        const res = await fetch(`/api/books/${isbn13}/review`);
         if (!res.ok) {
             container.textContent = '리뷰를 불러오지 못했습니다.';
             return;
