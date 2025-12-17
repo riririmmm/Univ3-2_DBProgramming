@@ -2,6 +2,46 @@ const isbn13 = document.getElementById('isbn13Hidden')?.value || "";
 let allComments = [];
 let currentWritePage = 1;
 
+async function fetchWithLoginConfirm(url, options = {}) {
+    let res;
+    try {
+        res = await fetch(url, {
+            ...options,
+            redirect: "manual" // 302 따라가지 말기 (무한 redirect 방지)
+        });
+    } catch (e) {
+        // 네트워크 레벨 오류(예: too many redirects로 fetch 자체가 실패)
+        const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
+        if (ok) {
+            const next = encodeURIComponent(location.pathname + location.search);
+            location.href = `/login?next=${next}`;
+        }
+        return null;
+    }
+
+    // 401이면 기존대로
+    if (res.status === 401) {
+        const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
+        if (ok) {
+            const next = encodeURIComponent(location.pathname + location.search);
+            location.href = `/login?next=${next}`;
+        }
+        return null;
+    }
+
+    // 302/303/307/308 같은 리다이렉트도 로그인 필요로 처리
+    if ((res.status >= 300 && res.status < 400) || res.type === "opaqueredirect") {
+        const ok = confirm("로그인이 필요한 기능입니다 로그인 화면으로 이동하시겠습니까?");
+        if (ok) {
+            const next = encodeURIComponent(location.pathname + location.search);
+            location.href = `/login?next=${next}`;
+        }
+        return null;
+    }
+
+    return res;
+}
+
 // 상세/진행도
 async function loadDetail() {
     try {
@@ -33,16 +73,18 @@ async function loadProgress() {
     }
 }
 
+// 진행도 저장
 async function saveProgress() {
     const v = document.getElementById('progressInput').value;
     const n = Number(v);
     if (Number.isNaN(n) || n < 0) return alert('0 이상 숫자를 입력하세요.');
     try {
-        const res = await fetch(`/api/books/${isbn13}/progress`, {
+        const res = await fetchWithLoginConfirm(`/api/books/${isbn13}/progress`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ currentPage: n })
         });
+        if (!res) return;
         if (!res.ok) {
             alert('저장 실패: ' + res.status);
             return;
@@ -121,13 +163,12 @@ async function loadReviews() {
                 ? new Date(r.createdAt).toLocaleString('ko-KR')
                 : '';
 
-            // 여기 추가: 각 리뷰의 별점 표시용 텍스트
+            // 각 리뷰의 별점 표시용 텍스트
             const ratingPart =
                 (typeof r.rating === 'number')
                     ? ` • ★ ${r.rating}`
                     : '';
 
-            // meta.textContent 수정: ratingPart를 끼워넣음
             meta.textContent =
                 `${idx === 0 ? '최근 리뷰' : `리뷰 #${reviews.length - idx}`} ` +
                 (dateStr ? `• ${dateStr}` : '') +
@@ -174,6 +215,7 @@ async function loadReviews() {
     }
 }
 
+// 리뷰 저장
 async function saveReview() {
     const text = document.getElementById('reviewText').value.trim();
     const spoiler = document.getElementById('reviewSpoiler').checked;
@@ -189,7 +231,7 @@ async function saveReview() {
     }
 
     try {
-        const res = await fetch(`/api/books/${isbn13}/review`, {
+        const res = await fetchWithLoginConfirm(`/api/books/${isbn13}/review`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -198,6 +240,7 @@ async function saveReview() {
                 rating: rating
             })
         });
+        if (!res) return;
         if (!res.ok) {
             alert('리뷰 저장 실패: ' + res.status);
             return;
@@ -370,11 +413,12 @@ async function addCommentFromModal() {
     }
 
     try {
-        const res = await fetch(`/api/books/${isbn13}/page-comments`, {
+        const res = await fetchWithLoginConfirm(`/api/books/${isbn13}/page-comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ page: page, comment: text })
         });
+        if (!res) return;
         if (!res.ok) {
             alert('코멘트 저장 실패: ' + res.status);
             return;
@@ -406,11 +450,12 @@ async function addQuickComment() {
     }
 
     try {
-        const res = await fetch(`/api/books/${isbn13}/page-comments`, {
+        const res = await fetchWithLoginConfirm(`/api/books/${isbn13}/page-comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ page: page, comment: text })
         });
+        if (!res) return;
         if (!res.ok) {
             alert('코멘트 저장 실패: ' + res.status);
             return;
