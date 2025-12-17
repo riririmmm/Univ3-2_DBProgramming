@@ -20,6 +20,7 @@ public class MyPageApiController {
     private final UserAccountRepository userAccountRepository;
     private final ReviewRepository reviewRepository;
     private final PageCommentRepository pageCommentRepository;
+    private final BookProgressRepository bookProgressRepository;
 
     private UserAccount getCurrentUser(Authentication authentication) {
         String username = authentication.getName();
@@ -153,6 +154,20 @@ public class MyPageApiController {
         }
 
         pageCommentRepository.delete(c);
+    }
+
+    // 8) 진행도 목록
+    @GetMapping("/progress")
+    public List<MyBookResponse> getMyProgressBooks(Authentication authentication) {
+        UserAccount me = getCurrentUser(authentication);
+
+        Set<String> isbnSet = bookProgressRepository.findByUser(me).stream()
+                .map(BookProgress::getIsbn13)
+                .collect(Collectors.toSet());
+
+        return isbnSet.stream()
+                .map(MyBookResponse::new)
+                .toList();
     }
 
 }

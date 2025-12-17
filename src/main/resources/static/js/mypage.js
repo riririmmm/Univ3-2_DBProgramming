@@ -25,23 +25,25 @@ async function loadMyBooks() {
     container.innerHTML = "";
 
     // 리뷰 책 목록 + 코멘트 책 목록 동시에 요청
-    const [reviewRes, commentRes] = await Promise.all([
+    const [reviewRes, commentRes, progressRes] = await Promise.all([
         fetch("/api/me/books"),
         fetch("/api/me/page-comments"),
+        fetch("/api/me/progress")
     ]);
 
     const reviewBooks = reviewRes.ok ? await reviewRes.json() : [];
     const commentBooks = commentRes.ok ? await commentRes.json() : [];
+    const progressBooks = progressRes.ok ? await progressRes.json() : [];
 
     // isbn13 기준 중복 제거
     const map = new Map();
-    [...reviewBooks, ...commentBooks].forEach((b) => {
+    [...reviewBooks, ...commentBooks, ...progressBooks].forEach((b) => {
         if (b && b.isbn13) map.set(b.isbn13, { isbn13: b.isbn13 });
     });
     const books = [...map.values()];
 
     if (books.length === 0) {
-        container.innerHTML = "<li>리뷰/코멘트를 남긴 책이 아직 없습니다.</li>";
+        container.innerHTML = "<li>진행도/리뷰/코멘트를 남긴 책이 아직 없습니다.</li>";
         return;
     }
 
