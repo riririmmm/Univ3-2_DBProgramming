@@ -92,11 +92,19 @@ public class BookController {
         }
 
         UserAccount me = getCurrentUser(authentication);
+        int page = req.getCurrentPage();
 
+        // 0이면 DB에서 진행도 기록 삭제
+        if (page == 0) {
+            progressRepo.deleteByUserAndIsbn13(me, isbn13);
+            return Map.of("isbn13", isbn13, "currentPage", 0);
+        }
+
+        // 1 이상이면 upsert
         BookProgress progress = progressRepo.findByUserAndIsbn13(me, isbn13)
                 .orElseGet(() -> new BookProgress(me, isbn13, 0));
 
-        progress.setCurrentPage(req.getCurrentPage());
+        progress.setCurrentPage(page);
         progressRepo.save(progress);
 
         return Map.of("isbn13", isbn13, "currentPage", progress.getCurrentPage());
