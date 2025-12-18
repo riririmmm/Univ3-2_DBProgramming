@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <title>도서 상세</title>
@@ -14,18 +17,20 @@
             <span>검색</span>
         </a>
 
-        <!-- 로그인 상태: nickname 존재 -->
-        <div class="user-area" th:if="${nickname != null}">
-            <span class="nickname" th:text="'(' + ${nickname} + ')'">(닉네임)</span>
-            <span class="sep">|</span>
-            <a th:href="@{/logout}">로그아웃</a>
-        </div>
-
-        <!-- 비로그인 상태 -->
-        <div class="user-area" th:if="${nickname == null}">
+        <!-- 비로그인 -->
+        <div class="user-area" sec:authorize="isAnonymous()">
             <a th:href="@{/login}">로그인</a>
             <span class="sep">|</span>
             <a th:href="@{/signup}">회원가입</a>
+        </div>
+
+        <!-- 로그인 -->
+        <div class="user-area" sec:authorize="isAuthenticated()">
+            <a th:href="@{/me}" class="nickname-link">
+                <span class="nickname" th:text="${loginNickname}">닉네임</span>
+            </a>
+            <span class="sep">|</span>
+            <a th:href="@{/logout}">로그아웃</a>
         </div>
     </div>
 </header>
